@@ -453,6 +453,62 @@ async function handleFinalTranscript(transcript){
   }
 }
 
+// Lightweight local heuristic: LanguageTool's free API often misses missing
+// indefinite articles ("It was amazing trip" → "an amazing trip"). This catches
+// the most common pattern: linking verb + adjective (from a curated list) +
+// singular countable noun, with no article already present. It's rule-based
+// and not exhaustive, but covers the frequent ESL mistake reliably.
+function startsWithVowelSound(word){
+  const w = word.toLowerCase();
+  if(/^(hour|honest|honor|honou|heir)/.test(w)) return true;
+  if(/^(university|europe|one|use|user|uniform|unicorn|unique|unit|utah|utopi)/.test(w)) return false;
+  return /^[aeiou]/.test(w);
+}
+
+const ARTICLE_LINKING_VERBS = new Set(['is','was','are','were','seem','seems','seemed','look','looks','looked','feel','feels','felt','became','become','becomes']);
+const ARTICLE_DETERMINERS = new Set(['a','an','the','my','your','his','her','its','our','their','this','that','these','those','some','any','no','every','each','another']);
+const ARTICLE_ADJECTIVES = new Set(['amazing','interesting','boring','exciting','surprising','terrifying','confusing','annoying','exhausting','relaxing','refreshing','disappointing','fascinating','tiring','satisfying','embarrassing','charming','stunning','shocking','thrilling','entertaining','challenging','rewarding','inspiring','tired','bored','excited','surprised','worried','scared','confused','interested','disappointed','satisfied','annoyed','embarrassed','amazed','thrilled','beautiful','wonderful','terrible','horrible','great','good','bad','nice','lovely','awful','fantastic','incredible','unforgettable','memorable','pleasant','unpleasant','strange','weird','funny','difficult','easy','hard','long','short','big','small','huge','tiny','important','useful','useless','expensive','cheap','delicious','tasty','crowded','quiet','peaceful','busy','dangerous','safe','popular','famous','typical','unusual','common','rare']);
+const ARTICLE_UNCOUNTABLE = new Set(['music','water','information','advice','furniture','equipment','money','time','work','news','traffic','weather','homework','luggage','baggage','fun','food','rice','bread','coffee','tea','milk','sugar','salt','air','love','happiness','knowledge','research','progress','luck','health']);
+const ARTICLE_S_EXCEPTIONS = new Set(['news','glass','bus','class','gas','kiss','boss','dress','business']);
+
+function findMissingArticles(transcript){
+  const tokenRe = /[A-Za-z']+/g;
+  const tokens = [];
+  let m;
+  while((m = tokenRe.exec(transcript))){
+    tokens.push({ word: m[0], start: m.index, end: m.index + m[0].length });
+  }
+
+  const found = [];
+  for(let i=0;i<tokens.length;i++){
+    if(!ARTICLE_LINKING_VERBS.has(tokens[i].word.toLowerCase())) continue;
+    const adjIdx = i+1, nounIdx = i+2;
+    if(nounIdx >= tokens.length) continue;
+    if(ARTICLE_DETERMINERS.has(tokens[adjIdx].word.toLowerCase())) continue; // article already there
+    if(!ARTICLE_ADJECTIVES.has(tokens[adjIdx].word.toLowerCase())) continue; // only fire on known adjectives
+
+    const noun = tokens[nounIdx].word;
+    const lowerNoun = noun.toLowerCase();
+    if(ARTICLE_DETERMINERS.has(lowerNoun)) continue;
+    if(ARTICLE_UNCOUNTABLE.has(lowerNoun)) continue;
+    if(/s$/i.test(noun) && !ARTICLE_S_EXCEPTIONS.has(lowerNoun)) continue; // looks plural
+    if(noun.length < 3) continue;
+
+    const phraseStart = tokens[adjIdx].start;
+    const phraseEnd = tokens[nounIdx].end;
+    const original = transcript.substring(phraseStart, phraseEnd);
+    const article = startsWithVowelSound(tokens[adjIdx].word) ? 'an' : 'a';
+    found.push({
+      offset: phraseStart,
+      length: phraseEnd - phraseStart,
+      original,
+      replacement: `${article} ${original}`,
+      explanation: `Перед "${original}" бракує неозначеного артикля "${article}" — прикметник + іменник в однині завжди потребують артикля.`
+    });
+  }
+  return found;
+}
+
 async function analyzeSpeech(transcript){
   const params = new URLSearchParams();
   params.append('text', transcript);
@@ -470,25 +526,35 @@ async function analyzeSpeech(transcript){
   // and typography — a listener can't hear a capital letter or a comma,
   // so flagging those as "errors" would be misleading for spoken English.
   const IGNORED_CATEGORIES = ['CASING','PUNCTUATION','TYPOGRAPHY'];
-  const matches = (data.matches || []).filter(m=>{
-    const catId = m.rule && m.rule.category && m.rule.category.id;
-    return !IGNORED_CATEGORIES.includes(catId);
-  });
+  const ltMatches = (data.matches || [])
+    .filter(m=>{
+      const catId = m.rule && m.rule.category && m.rule.category.id;
+      return !IGNORED_CATEGORIES.includes(catId);
+    })
+    .map(m=>({
+      offset: m.offset,
+      length: m.length,
+      original: transcript.substr(m.offset, m.length),
+      replacement: (m.replacements && m.replacements.length>0) ? m.replacements[0].value : null,
+      explanation: m.message || (m.rule && m.rule.description) || 'Перевір цю частину речення (пояснення від LanguageTool англійською)'
+    }));
 
-  // Apply replacements from end to start so earlier offsets stay valid
+  const rawArticleMatches = findMissingArticles(transcript);
+  const overlaps = (a,b) => !(a.offset+a.length <= b.offset || b.offset+b.length <= a.offset);
+  const articleMatches = rawArticleMatches.filter(am => !ltMatches.some(lt => overlaps(am, lt)));
+
+  // Apply all edits from end to start so earlier offsets stay valid
   let corrected = transcript;
   const errors = [];
-  const sortedDesc = matches.slice().sort((a,b)=>b.offset-a.offset);
-  sortedDesc.forEach(m=>{
-    const original = transcript.substr(m.offset, m.length);
-    const replacement = (m.replacements && m.replacements.length>0) ? m.replacements[0].value : null;
-    if(replacement){
-      corrected = corrected.substring(0,m.offset) + replacement + corrected.substring(m.offset+m.length);
+  const allMatches = [...ltMatches, ...articleMatches].sort((a,b)=>b.offset-a.offset);
+  allMatches.forEach(e=>{
+    if(e.replacement){
+      corrected = corrected.substring(0,e.offset) + e.replacement + corrected.substring(e.offset+e.length);
     }
     errors.unshift({
-      original,
-      correction: replacement || original,
-      explanation: m.message || (m.rule && m.rule.description) || 'Перевір цю частину речення (пояснення від LanguageTool англійською)'
+      original: e.original,
+      correction: e.replacement || e.original,
+      explanation: e.explanation
     });
   });
 
