@@ -465,7 +465,15 @@ async function analyzeSpeech(transcript){
   });
   if(!response.ok) throw new Error('LanguageTool request failed');
   const data = await response.json();
-  const matches = data.matches || [];
+
+  // Speaking practice only: ignore rules about capitalization, punctuation,
+  // and typography — a listener can't hear a capital letter or a comma,
+  // so flagging those as "errors" would be misleading for spoken English.
+  const IGNORED_CATEGORIES = ['CASING','PUNCTUATION','TYPOGRAPHY'];
+  const matches = (data.matches || []).filter(m=>{
+    const catId = m.rule && m.rule.category && m.rule.category.id;
+    return !IGNORED_CATEGORIES.includes(catId);
+  });
 
   // Apply replacements from end to start so earlier offsets stay valid
   let corrected = transcript;
