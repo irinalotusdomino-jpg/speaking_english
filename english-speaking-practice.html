@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Voice Coach — практика англійської</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#151830;
+    --bg-2:#1c2040;
+    --surface:#20244a;
+    --surface-2:#282c58;
+    --text:#f3f1fb;
+    --text-dim:#a3a4c9;
+    --amber:#f2a65a;
+    --amber-dim:#7a5a34;
+    --lavender:#b9a6f0;
+    --rose:#f0748a;
+    --success:#7fd8a6;
+    --border:#33366a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 600px 300px at 20% -5%, rgba(242,166,90,0.10), transparent),
+      radial-gradient(ellipse 500px 300px at 90% 10%, rgba(185,166,240,0.08), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:28px 18px 60px;}
+
+.avatar-wrap{display:flex;justify-content:center;margin-bottom:16px;}
+  .avatar{
+    position:relative;width:104px;height:104px;border-radius:50%;
+    overflow:hidden;box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--amber-dim), 0 8px 22px rgba(0,0,0,.35);
+  }
+  .avatar img{
+    position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;
+    transition:opacity .25s ease;
+  }
+  .avatar img.talk{opacity:0;}
+  .avatar.speaking img.idle{opacity:0;}
+  .avatar.speaking img.talk{opacity:1;}
+  .avatar.speaking{box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--lavender), 0 8px 22px rgba(185,166,240,.3);}
+
+  header{margin-bottom:22px;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--amber);margin-bottom:6px;
+  }
+  h1{
+    font-family:'Fraunces',serif;font-weight:600;font-size:30px;
+    margin:0 0 6px;letter-spacing:-.01em;
+  }
+  header p{margin:0;color:var(--text-dim);font-size:14px;line-height:1.5;}
+
+  .topics{
+    display:flex;gap:8px;overflow-x:auto;padding:4px 0 18px;
+    scrollbar-width:none;
+  }
+  .topics::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto;padding:8px 14px;border-radius:100px;
+    background:var(--surface);border:1px solid var(--border);
+    color:var(--text-dim);font-size:13px;font-weight:500;cursor:pointer;
+    transition:all .15s ease;white-space:nowrap;
+  }
+  .chip:hover{border-color:var(--amber-dim);}
+  .chip.active{background:var(--amber);color:#251505;border-color:var(--amber);}
+
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:22px;margin-bottom:16px;
+  }
+
+  .question-card{position:relative;}
+  .question-label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
+  .question-text{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-size:21px;line-height:1.4;color:var(--text);}
+  .replay-btn{
+    position:absolute;top:20px;right:20px;width:34px;height:34px;border-radius:50%;
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;
+  }
+  .replay-btn:hover{color:var(--amber);border-color:var(--amber-dim);}
+
+  .mic-zone{display:flex;flex-direction:column;align-items:center;padding:30px 0 8px;}
+  .mic-ring{
+    position:relative;width:132px;height:132px;display:flex;align-items:center;justify-content:center;
+    margin-bottom:14px;
+  }
+  .bar{
+    position:absolute;width:4px;border-radius:4px;background:var(--amber);
+    opacity:0;transform-origin:center;
+  }
+  .mic-btn{
+    width:84px;height:84px;border-radius:50%;border:none;cursor:pointer;
+    background:linear-gradient(160deg,var(--amber),#d97f3a);
+    color:#251505;font-size:28px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 20px rgba(242,166,90,.28);
+    transition:transform .15s ease, box-shadow .15s ease;
+    z-index:2;
+  }
+  .mic-btn:active{transform:scale(.95);}
+  .mic-btn.listening{
+    background:linear-gradient(160deg,#e85a6e,var(--rose));
+    box-shadow:0 6px 24px rgba(240,116,138,.35);
+  }
+  .mic-btn.disabled{opacity:.4;cursor:not-allowed;}
+  .mic-status{font-size:13px;color:var(--text-dim);height:18px;font-family:'JetBrains Mono',monospace;}
+  .mic-ring.active .bar{animation:wave 1s ease-in-out infinite;}
+
+  @keyframes wave{
+    0%,100%{opacity:.35;transform:scaleY(.4);}
+    50%{opacity:1;transform:scaleY(1);}
+  }
+
+  .transcript-box{
+    font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.6;color:var(--text-dim);
+    border-left:2px solid var(--border);padding-left:14px;margin:16px 0;min-height:22px;
+  }
+  .transcript-box.live{color:var(--text);border-color:var(--rose);}
+  .transcript-box .placeholder{opacity:.5;font-style:italic;}
+
+  .feedback-card{border-color:var(--lavender);animation:fadeIn .35s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .feedback-label{font-size:11px;color:var(--lavender);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
+  .corrected-text{font-size:16px;line-height:1.6;margin-bottom:14px;}
+  .corrected-text mark{background:rgba(185,166,240,.22);color:var(--lavender);padding:1px 4px;border-radius:4px;font-weight:600;}
+  .no-errors{color:var(--success);font-weight:600;font-size:14px;margin-bottom:8px;}
+
+  .err-item{
+    display:flex;flex-direction:column;gap:2px;
+    padding:10px 0;border-top:1px solid var(--border);
+  }
+  .err-item:first-of-type{border-top:none;}
+  .err-swap{font-family:'JetBrains Mono',monospace;font-size:13px;}
+  .err-swap .old{color:var(--rose);text-decoration:line-through;text-decoration-color:rgba(240,116,138,.5);}
+  .err-swap .new{color:var(--success);}
+  .err-explain{font-size:13px;color:var(--text-dim);line-height:1.4;}
+
+  .encouragement{
+    margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
+    font-size:14px;color:var(--text);
+  }
+
+  .next-btn{
+    width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
+    background:var(--surface-2);color:var(--text);font-weight:600;font-size:14px;
+    border:1px solid var(--border);
+  }
+  .next-btn:hover{border-color:var(--lavender);color:var(--lavender);}
+
+  .history{margin-top:26px;}
+  .history-title{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
+  .hist-item{padding:10px 0;border-top:1px solid var(--border);font-size:13px;color:var(--text-dim);}
+  .hist-item:first-child{border-top:none;}
+  .hist-item b{color:var(--text);font-weight:500;}
+
+  .stat-row{display:flex;gap:18px;margin-bottom:18px;}
+  .stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;}
+  .stat .num{font-family:'Fraunces',serif;font-size:22px;font-weight:600;}
+  .stat .lbl{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;}
+
+  .warn{
+    background:rgba(240,116,138,.1);border:1px solid rgba(240,116,138,.35);
+    color:#ffc9d3;padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:16px;line-height:1.5;
+  }
+  .loading-dots::after{content:'';animation:dots 1.2s steps(4,end) infinite;}
+  @keyframes dots{0%{content:'';}25%{content:'.';}50%{content:'..';}75%{content:'...';}100%{content:'';}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="avatar-wrap">
+    <div class="avatar" id="avatar">
+      <img class="idle" src="avatar-idle.jpg" alt="Аватар співрозмовниці">
+      <img class="talk" src="avatar-talk.jpg" alt="Аватар співрозмовниці говорить">
+    </div>
+  </div>
+
+  <header>
+    <div class="eyebrow">voice coach · англійська вголос</div>
+    <h1>Говори — я підкажу</h1>
+    <p>Обери тему, натисни мікрофон і відповідай англійською. Я запишу, що ти сказала, і покажу виправлення.</p>
+  </header>
+
+  <div id="warnBox"></div>
+
+  <div class="topics" id="topics"></div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="num" id="statCount">0</div><div class="lbl">Речень</div></div>
+    <div class="stat"><div class="num" id="statClean">0</div><div class="lbl">Без помилок</div></div>
+  </div>
+
+  <div class="card question-card">
+    <button class="replay-btn" id="replayBtn" title="Прослухати питання">▶</button>
+    <div class="question-label">Питання</div>
+    <div class="question-text" id="questionText">Обери тему вище, щоб почати</div>
+  </div>
+
+  <div class="mic-zone">
+    <div class="mic-ring" id="micRing">
+      <button class="mic-btn disabled" id="micBtn">🎤</button>
+    </div>
+    <div class="mic-status" id="micStatus">Обери тему, щоб почати</div>
+  </div>
+
+  <div class="transcript-box" id="transcriptBox"><span class="placeholder">Тут з'явиться те, що ти скажеш...</span></div>
+
+  <div id="feedbackArea"></div>
+
+  <div class="history" id="historyArea" style="display:none;">
+    <div class="history-title">Історія сесії</div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<script>
+const topics = [
+  { id:'daily', label:'Щоденне життя', starters:[
+    "Tell me about your morning routine.",
+    "What did you have for breakfast today?",
+    "How do you usually spend your evenings?"
+  ]},
+  { id:'travel', label:'Подорожі', starters:[
+    "What's a city you'd love to visit, and why?",
+    "Tell me about a trip you remember well.",
+    "Do you prefer the mountains or the sea?"
+  ]},
+  { id:'work', label:'Співбесіда', starters:[
+    "Can you tell me a little about yourself?",
+    "What are you looking for in your next job?",
+    "Describe a challenge you handled well at work."
+  ]},
+  { id:'hobbies', label:'Хобі', starters:[
+    "What do you like to do in your free time?",
+    "Is there a hobby you'd like to start this year?",
+    "What's a movie or book you enjoyed recently?"
+  ]},
+  { id:'smalltalk', label:'Small talk', starters:[
+    "How has your week been so far?",
+    "What's the weather like where you are?",
+    "Do you have any plans for the weekend?"
+  ]}
+];
+
+let currentTopic = null;
+let currentQuestion = "";
+let conversationHistory = []; // {question, transcript, corrected}
+let recognition = null;
+let listening = false;
+let sessionCount = 0;
+let sessionClean = 0;
+
+const topicsEl = document.getElementById('topics');
+const questionText = document.getElementById('questionText');
+const micBtn = document.getElementById('micBtn');
+const micRing = document.getElementById('micRing');
+const micStatus = document.getElementById('micStatus');
+const transcriptBox = document.getElementById('transcriptBox');
+const feedbackArea = document.getElementById('feedbackArea');
+const historyArea = document.getElementById('historyArea');
+const historyList = document.getElementById('historyList');
+const warnBox = document.getElementById('warnBox');
+const replayBtn = document.getElementById('replayBtn');
+const statCount = document.getElementById('statCount');
+const statClean = document.getElementById('statClean');
+
+// build waveform bars
+const barCount = 24;
+for(let i=0;i<barCount;i++){
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  const angle = (i/barCount)*360;
+  const height = 10 + Math.random()*14;
+  bar.style.height = height+'px';
+  bar.style.left = '50%';
+  bar.style.top = '50%';
+  bar.style.transform = `rotate(${angle}deg) translate(0, -58px)`;
+  bar.style.animationDelay = (Math.random()*0.6)+'s';
+  micRing.appendChild(bar);
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function getNextQuestion(topic){
+  if(!topic.queue || topic.queue.length===0){
+    topic.queue = shuffle(topic.starters);
+  }
+  return topic.queue.shift();
+}
+
+const encouragementsClean = [
+  "Чудово! Жодної помилки — так тримати.",
+  "Ідеально сказано, продовжуй у тому ж дусі!",
+  "Дуже природно прозвучало — супер.",
+  "Клас! Звучить дуже впевнено."
+];
+const encouragementsErrors = [
+  "Непогано! Ще трохи практики — і буде ідеально.",
+  "Гарна спроба, глянь на виправлення нижче.",
+  "Ти на правильному шляху, лише кілька дрібниць.",
+  "Молодець, що спробувала! Ось на що звернути увагу."
+];
+function pickEncouragement(hasErrors){
+  const arr = hasErrors ? encouragementsErrors : encouragementsClean;
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+
+// render topic chips
+topics.forEach(t=>{
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  chip.textContent = t.label;
+  chip.onclick = ()=>selectTopic(t);
+  chip.dataset.id = t.id;
+  topicsEl.appendChild(chip);
+});
+
+function selectTopic(t){
+  currentTopic = t;
+  conversationHistory = [];
+  historyList.innerHTML = '';
+  historyArea.style.display = 'none';
+  feedbackArea.innerHTML = '';
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', c.dataset.id===t.id));
+  t.queue = shuffle(t.starters);
+  currentQuestion = getNextQuestion(t);
+  questionText.textContent = currentQuestion;
+  micBtn.classList.remove('disabled');
+  micStatus.textContent = 'Натисни мікрофон і відповідай';
+  transcriptBox.innerHTML = '<span class="placeholder">Тут з\\'явиться те, що ти скажеш...</span>';
+}
+
+replayBtn.onclick = ()=>{
+  if(!currentQuestion) return;
+  speakEnglish(currentQuestion);
+};
+
+function speakEnglish(text){
+  if(!('speechSynthesis' in window)) return;
+  const avatarEl = document.getElementById('avatar');
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = 0.95;
+  u.onstart = ()=> avatarEl && avatarEl.classList.add('speaking');
+  u.onend = ()=> avatarEl && avatarEl.classList.remove('speaking');
+  u.onerror = ()=> avatarEl && avatarEl.classList.remove('speaking');
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+}
+
+// speech recognition setup
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(!SR){
+  warnBox.innerHTML = '<div class="warn">Розпізнавання мовлення не підтримується у цьому браузері. Відкрий цю сторінку в Chrome на Android для найкращої роботи.</div>';
+  micBtn.classList.add('disabled');
+} else {
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  recognition.onresult = (e)=>{
+    let interim = '';
+    let final = '';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    transcriptBox.classList.add('live');
+    transcriptBox.textContent = final || interim || '...';
+    if(final){
+      stopListening();
+      handleFinalTranscript(final.trim());
+    }
+  };
+
+  recognition.onerror = (e)=>{
+    stopListening();
+    if(e.error === 'not-allowed'){
+      micStatus.textContent = 'Немає доступу до мікрофона';
+    } else if(e.error === 'no-speech'){
+      micStatus.textContent = 'Не почув мовлення, спробуй ще раз';
+    } else {
+      micStatus.textContent = 'Помилка розпізнавання, спробуй ще раз';
+    }
+  };
+
+  recognition.onend = ()=>{ if(listening) stopListening(); };
+}
+
+micBtn.onclick = ()=>{
+  if(micBtn.classList.contains('disabled') || !currentTopic) return;
+  if(listening){ recognition.stop(); return; }
+  startListening();
+};
+
+function startListening(){
+  listening = true;
+  micBtn.classList.add('listening');
+  micRing.classList.add('active');
+  micStatus.textContent = 'Слухаю...';
+  feedbackArea.innerHTML = '';
+  transcriptBox.classList.remove('live');
+  transcriptBox.innerHTML = '<span class="placeholder">Говори...</span>';
+  try{ recognition.start(); }catch(err){ /* already started */ }
+}
+
+function stopListening(){
+  listening = false;
+  micBtn.classList.remove('listening');
+  micRing.classList.remove('active');
+  micStatus.textContent = 'Натисни мікрофон і відповідай';
+}
+
+async function handleFinalTranscript(transcript){
+  micStatus.innerHTML = 'Аналізую <span class="loading-dots"></span>';
+  transcriptBox.textContent = transcript;
+
+  try{
+    const result = await analyzeSpeech(transcript);
+    renderFeedback(transcript, result);
+    conversationHistory.push({question: currentQuestion, transcript, corrected: result.corrected, hadErrors: result.errors.length>0});
+    updateHistory();
+    sessionCount++;
+    if(result.errors.length===0) sessionClean++;
+    statCount.textContent = sessionCount;
+    statClean.textContent = sessionClean;
+    if(result.next_question){
+      currentQuestion = result.next_question;
+      questionText.textContent = currentQuestion;
+    }
+  }catch(err){
+    feedbackArea.innerHTML = `<div class="card warn">Не вдалося отримати відповідь від сервісу перевірки. Спробуй ще раз.</div>`;
+  }finally{
+    micStatus.textContent = 'Натисни мікрофон і відповідай';
+  }
+}
+
+async function analyzeSpeech(transcript){
+  const params = new URLSearchParams();
+  params.append('text', transcript);
+  params.append('language', 'en-US');
+
+  const response = await fetch('https://api.languagetool.org/v2/check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  });
+  if(!response.ok) throw new Error('LanguageTool request failed');
+  const data = await response.json();
+  const matches = data.matches || [];
+
+  // Apply replacements from end to start so earlier offsets stay valid
+  let corrected = transcript;
+  const errors = [];
+  const sortedDesc = matches.slice().sort((a,b)=>b.offset-a.offset);
+  sortedDesc.forEach(m=>{
+    const original = transcript.substr(m.offset, m.length);
+    const replacement = (m.replacements && m.replacements.length>0) ? m.replacements[0].value : null;
+    if(replacement){
+      corrected = corrected.substring(0,m.offset) + replacement + corrected.substring(m.offset+m.length);
+    }
+    errors.unshift({
+      original,
+      correction: replacement || original,
+      explanation: m.message || (m.rule && m.rule.description) || 'Перевір цю частину речення (пояснення від LanguageTool англійською)'
+    });
+  });
+
+  return {
+    corrected,
+    errors,
+    encouragement: pickEncouragement(errors.length>0),
+    next_question: getNextQuestion(currentTopic)
+  };
+}
+
+function renderFeedback(transcript, result){
+  let correctedHtml = escapeHtml(result.corrected);
+  result.errors.forEach(e=>{
+    const safeOld = escapeHtml(e.original);
+    const safeNew = escapeHtml(e.correction);
+    if(correctedHtml.includes(safeNew)){
+      correctedHtml = correctedHtml.replace(safeNew, `<mark>${safeNew}</mark>`);
+    }
+  });
+
+  let errorsHtml = '';
+  if(result.errors.length===0){
+    errorsHtml = `<div class="no-errors">✓ Жодної помилки — чудово!</div>`;
+  } else {
+    errorsHtml = result.errors.map(e=>`
+      <div class="err-item">
+        <div class="err-swap"><span class="old">${escapeHtml(e.original)}</span> → <span class="new">${escapeHtml(e.correction)}</span></div>
+        <div class="err-explain">${escapeHtml(e.explanation)}</div>
+      </div>
+    `).join('');
+  }
+
+  feedbackArea.innerHTML = `
+    <div class="card feedback-card">
+      <div class="feedback-label">Виправлення</div>
+      <div class="corrected-text">${correctedHtml}</div>
+      ${errorsHtml}
+      <div class="encouragement">${escapeHtml(result.encouragement)}</div>
+    </div>
+    <button class="next-btn" id="nextBtn">Наступне питання →</button>
+  `;
+  document.getElementById('nextBtn').onclick = ()=>{
+    speakEnglish(currentQuestion);
+    feedbackArea.innerHTML = '';
+    transcriptBox.innerHTML = '<span class="placeholder">Тут з\\'явиться те, що ти скажеш...</span>';
+  };
+  speakEnglish(result.corrected);
+}
+
+function updateHistory(){
+  if(conversationHistory.length===0) return;
+  historyArea.style.display = 'block';
+  historyList.innerHTML = conversationHistory.slice().reverse().map(h=>`
+    <div class="hist-item">
+      <b>${h.hadErrors ? '✎' : '✓'}</b> ${escapeHtml(h.transcript)}
+    </div>
+  `).join('');
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
