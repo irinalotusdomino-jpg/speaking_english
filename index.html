@@ -344,7 +344,7 @@ function selectTopic(t){
   questionText.textContent = currentQuestion;
   micBtn.classList.remove('disabled');
   micStatus.textContent = 'Натисни мікрофон і відповідай';
-  transcriptBox.innerHTML = '<span class="placeholder">Тут з\\'явиться те, що ти скажеш...</span>';
+  transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
 }
 
 replayBtn.onclick = ()=>{
@@ -526,7 +526,7 @@ function renderFeedback(transcript, result){
   document.getElementById('nextBtn').onclick = ()=>{
     speakEnglish(currentQuestion);
     feedbackArea.innerHTML = '';
-    transcriptBox.innerHTML = '<span class="placeholder">Тут з\\'явиться те, що ти скажеш...</span>';
+    transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
   };
   speakEnglish(result.corrected);
 }
