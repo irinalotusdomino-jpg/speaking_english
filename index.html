@@ -418,13 +418,15 @@ function saveProgress(){
 }
 
 const MISTAKE_CATEGORIES = [
+  { key:'spelling',     label:'Орфографія',              test:/spell|misspell|typo/i },
   { key:'articles',     label:'Артиклі (a/an/the)',      test:/article|артикл/i },
   { key:'tenses',       label:'Часи дієслів',            test:/tense|past simple|present simple|future|verb form/i },
   { key:'agreement',    label:'Узгодження підмет-присудок', test:/agreement|does not agree|subject.?verb/i },
   { key:'prepositions', label:'Прийменники',             test:/preposition/i },
   { key:'plurals',      label:'Множина іменників',       test:/plural/i },
   { key:'word-choice',  label:'Вибір слова',             test:/use .* instead|confused word|wrong word|word choice/i },
-  { key:'word-order',   label:'Порядок слів',            test:/word order/i }
+  { key:'word-order',   label:'Порядок слів',            test:/word order/i },
+  { key:'structure',    label:'Структура речення',       test:/sentence structure|awkward|fragment|run-on|incomplete sentence|rephrase/i }
 ];
 function categorizeMistake(explanation){
   for(const c of MISTAKE_CATEGORIES){
@@ -798,6 +800,7 @@ async function analyzeSpeech(transcript){
   const params = new URLSearchParams();
   params.append('text', transcript);
   params.append('language', 'en-US');
+  params.append('level', 'picky');
 
   const response = await fetch('https://api.languagetool.org/v2/check', {
     method: 'POST',
