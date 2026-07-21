@@ -418,15 +418,15 @@ function saveProgress(){
 }
 
 const MISTAKE_CATEGORIES = [
-  { key:'spelling',     label:'Орфографія',              test:/spell|misspell|typo/i },
+  { key:'spelling',     label:'Орфографія',              test:/spell|misspell|typo|орфограф|написанн/i },
   { key:'articles',     label:'Артиклі (a/an/the)',      test:/article|артикл/i },
-  { key:'tenses',       label:'Часи дієслів',            test:/tense|past simple|present simple|future|verb form/i },
-  { key:'agreement',    label:'Узгодження підмет-присудок', test:/agreement|does not agree|subject.?verb/i },
-  { key:'prepositions', label:'Прийменники',             test:/preposition/i },
-  { key:'plurals',      label:'Множина іменників',       test:/plural/i },
-  { key:'word-choice',  label:'Вибір слова',             test:/use .* instead|confused word|wrong word|word choice/i },
-  { key:'word-order',   label:'Порядок слів',            test:/word order/i },
-  { key:'structure',    label:'Структура речення',       test:/sentence structure|awkward|fragment|run-on|incomplete sentence|rephrase/i }
+  { key:'tenses',       label:'Часи дієслів',            test:/tense|past simple|present simple|future|verb form|\bчас[іу]?\b|минул|майбутн|теперішн/i },
+  { key:'agreement',    label:'Узгодження підмет-присудок', test:/agreement|does not agree|subject.?verb|узгодженн/i },
+  { key:'prepositions', label:'Прийменники',             test:/preposition|прийменник/i },
+  { key:'plurals',      label:'Множина іменників',       test:/plural|множин/i },
+  { key:'word-choice',  label:'Вибір слова',             test:/use .* instead|confused word|wrong word|word choice|вибір слова|не те слово/i },
+  { key:'word-order',   label:'Порядок слів',            test:/word order|порядок слів/i },
+  { key:'structure',    label:'Структура речення',       test:/sentence structure|awkward|fragment|run-on|incomplete sentence|rephrase|структур[аи] речення|незрозуміл/i }
 ];
 function categorizeMistake(explanation){
   for(const c of MISTAKE_CATEGORIES){
@@ -716,8 +716,11 @@ async function handleFinalTranscript(transcript){
     totalCount++;
     if(result.errors.length===0) totalClean++;
     result.errors.forEach(e=>{
-      const cat = categorizeMistake(e.explanation);
-      mistakeTally[cat.key] = (mistakeTally[cat.key] || 0) + 1;
+      // Prefer the category the LLM assigned directly; only fall back to
+      // regex-guessing from the explanation text if it's missing/unknown.
+      const knownKey = e.category && MISTAKE_CATEGORIES.some(c=>c.key===e.category) ? e.category : null;
+      const catKey = knownKey || categorizeMistake(e.explanation).key;
+      mistakeTally[catKey] = (mistakeTally[catKey] || 0) + 1;
     });
 
     const today = todayStr();
@@ -759,7 +762,7 @@ async function analyzeSpeech(transcript){
   const response = await fetch(GRAMMAR_WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: transcript })
+    body: JSON.stringify({ text: transcript, question: currentQuestion || '' })
   });
   if(!response.ok) throw new Error('Grammar check request failed');
   const data = await response.json();
