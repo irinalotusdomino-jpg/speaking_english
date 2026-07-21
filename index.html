@@ -161,17 +161,59 @@
   .hist-item:first-child{border-top:none;}
   .hist-item b{color:var(--text);font-weight:500;}
 
-  .stat-row{display:flex;gap:18px;margin-bottom:18px;}
-  .stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 14px;}
-  .stat .num{font-family:'Fraunces',serif;font-size:22px;font-weight:600;}
-  .stat .lbl{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;}
-
   .warn{
     background:rgba(240,116,138,.1);border:1px solid rgba(240,116,138,.35);
     color:#ffc9d3;padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:16px;line-height:1.5;
   }
   .loading-dots::after{content:'';animation:dots 1.2s steps(4,end) infinite;}
   @keyframes dots{0%{content:'';}25%{content:'.';}50%{content:'..';}75%{content:'...';}100%{content:'';}}
+
+  .custom-topic-row{display:flex;gap:8px;margin-bottom:18px;}
+  .custom-topic-row input{
+    flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:11px 14px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;
+  }
+  .custom-topic-row input::placeholder{color:var(--text-dim);}
+  .custom-topic-row input:focus{outline:none;border-color:var(--lavender);}
+  .custom-topic-row button{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    border-radius:12px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;
+  }
+  .custom-topic-row button:hover{border-color:var(--lavender);color:var(--lavender);}
+
+  .control-row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:12px 16px;margin-bottom:12px;font-size:13px;
+  }
+  .control-row .ctrl-label{color:var(--text-dim);}
+  .switch{position:relative;width:40px;height:22px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .track{
+    position:absolute;inset:0;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:100px;cursor:pointer;transition:background .15s ease;
+  }
+  .switch .track::before{
+    content:'';position:absolute;width:16px;height:16px;left:2px;top:2px;
+    background:var(--text-dim);border-radius:50%;transition:transform .15s ease, background .15s ease;
+  }
+  .switch input:checked + .track{background:var(--amber-dim);border-color:var(--amber);}
+  .switch input:checked + .track::before{transform:translateX(18px);background:var(--amber);}
+
+  .speed-slider{display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end;}
+  .speed-slider input[type="range"]{width:110px;accent-color:var(--lavender);}
+  .speed-slider .speed-val{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;width:32px;text-align:right;}
+
+  .stat-row{display:flex;gap:12px;margin-bottom:18px;}
+  .stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 10px;text-align:center;}
+  .stat .num{font-family:'Fraunces',serif;font-size:20px;font-weight:600;}
+  .stat .lbl{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;}
+
+  .patterns-card{display:none;}
+  .patterns-card .feedback-label{color:var(--amber);}
+  .pattern-item{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-top:1px solid var(--border);}
+  .pattern-item:first-of-type{border-top:none;}
+  .pattern-item .cnt{color:var(--amber);font-family:'JetBrains Mono',monospace;}
 </style>
 </head>
 <body>
@@ -193,9 +235,36 @@
 
   <div class="topics" id="topics"></div>
 
+  <div class="custom-topic-row">
+    <input type="text" id="customTopicInput" placeholder="Або введи своє питання англійською...">
+    <button id="customTopicBtn">Почати</button>
+  </div>
+
+  <div class="control-row">
+    <span class="ctrl-label">Розмова без пауз</span>
+    <label class="switch">
+      <input type="checkbox" id="autoModeToggle">
+      <span class="track"></span>
+    </label>
+  </div>
+
+  <div class="control-row">
+    <span class="ctrl-label">Швидкість голосу</span>
+    <div class="speed-slider">
+      <input type="range" id="speedSlider" min="0.7" max="1.2" step="0.05" value="0.95">
+      <span class="speed-val" id="speedVal">0.95×</span>
+    </div>
+  </div>
+
   <div class="stat-row">
     <div class="stat"><div class="num" id="statCount">0</div><div class="lbl">Речень</div></div>
     <div class="stat"><div class="num" id="statClean">0</div><div class="lbl">Без помилок</div></div>
+    <div class="stat"><div class="num" id="statStreak">0</div><div class="lbl">Днів поспіль</div></div>
+  </div>
+
+  <div class="card patterns-card" id="patternsCard">
+    <div class="feedback-label">Найчастіші помилки</div>
+    <div id="patternsList"></div>
   </div>
 
   <div class="card question-card">
@@ -310,8 +379,79 @@ let currentQuestion = "";
 let conversationHistory = []; // {question, transcript, corrected}
 let recognition = null;
 let listening = false;
-let sessionCount = 0;
-let sessionClean = 0;
+let totalCount = 0;
+let totalClean = 0;
+let mistakeTally = {};
+let streak = 0;
+let lastPracticeDate = null;
+let speechRate = 0.95;
+
+const STORAGE_KEY = 'voiceCoachProgress';
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function yesterdayStr(){
+  const d = new Date();
+  d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
+
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    totalCount = data.totalCount || 0;
+    totalClean = data.totalClean || 0;
+    mistakeTally = data.mistakeTally || {};
+    streak = data.streak || 0;
+    lastPracticeDate = data.lastPracticeDate || null;
+    speechRate = typeof data.speechRate === 'number' ? data.speechRate : 0.95;
+  }catch(err){ /* localStorage unavailable or corrupted — start fresh */ }
+}
+
+function saveProgress(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      totalCount, totalClean, mistakeTally, streak, lastPracticeDate, speechRate
+    }));
+  }catch(err){ /* storage full or blocked — silently skip persistence */ }
+}
+
+const MISTAKE_CATEGORIES = [
+  { key:'articles',     label:'Артиклі (a/an/the)',      test:/article|артикл/i },
+  { key:'tenses',       label:'Часи дієслів',            test:/tense|past simple|present simple|future|verb form/i },
+  { key:'agreement',    label:'Узгодження підмет-присудок', test:/agreement|does not agree|subject.?verb/i },
+  { key:'prepositions', label:'Прийменники',             test:/preposition/i },
+  { key:'plurals',      label:'Множина іменників',       test:/plural/i },
+  { key:'word-choice',  label:'Вибір слова',             test:/use .* instead|confused word|wrong word|word choice/i },
+  { key:'word-order',   label:'Порядок слів',            test:/word order/i }
+];
+function categorizeMistake(explanation){
+  for(const c of MISTAKE_CATEGORIES){
+    if(c.test.test(explanation)) return c;
+  }
+  return { key:'other', label:'Інше' };
+}
+
+function renderPatterns(){
+  const entries = Object.entries(mistakeTally).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  if(entries.length === 0){
+    patternsCard.style.display = 'none';
+    return;
+  }
+  patternsCard.style.display = 'block';
+  patternsList.innerHTML = entries.map(([key,count])=>{
+    const meta = MISTAKE_CATEGORIES.find(c=>c.key===key);
+    const label = meta ? meta.label : 'Інше';
+    return `<div class="pattern-item"><span>${escapeHtml(label)}</span><span class="cnt">${count}</span></div>`;
+  }).join('');
+}
+
+function updateStatsDisplay(){
+  statCount.textContent = totalCount;
+  statClean.textContent = totalClean;
+  statStreak.textContent = streak;
+}
 
 const topicsEl = document.getElementById('topics');
 const questionText = document.getElementById('questionText');
@@ -326,6 +466,22 @@ const warnBox = document.getElementById('warnBox');
 const replayBtn = document.getElementById('replayBtn');
 const statCount = document.getElementById('statCount');
 const statClean = document.getElementById('statClean');
+const statStreak = document.getElementById('statStreak');
+const customTopicInput = document.getElementById('customTopicInput');
+const customTopicBtn = document.getElementById('customTopicBtn');
+const autoModeToggle = document.getElementById('autoModeToggle');
+const speedSlider = document.getElementById('speedSlider');
+const speedVal = document.getElementById('speedVal');
+const patternsCard = document.getElementById('patternsCard');
+const patternsList = document.getElementById('patternsList');
+
+let autoMode = false;
+
+loadProgress();
+updateStatsDisplay();
+renderPatterns();
+speedSlider.value = speechRate;
+speedVal.textContent = speechRate.toFixed(2) + '×';
 
 // build waveform bars
 const barCount = 24;
@@ -405,6 +561,45 @@ replayBtn.onclick = ()=>{
   speakEnglish(currentQuestion);
 };
 
+autoModeToggle.onchange = ()=>{
+  autoMode = autoModeToggle.checked;
+};
+
+speedSlider.oninput = ()=>{
+  speechRate = parseFloat(speedSlider.value);
+  speedVal.textContent = speechRate.toFixed(2) + '×';
+  saveProgress();
+};
+
+function startCustomTopic(text){
+  const trimmed = text.trim();
+  if(!trimmed) return;
+  const customTopic = { id:'custom', label:'Своя тема', starters:[trimmed], queue:[] };
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  currentTopic = customTopic;
+  conversationHistory = [];
+  historyList.innerHTML = '';
+  historyArea.style.display = 'none';
+  feedbackArea.innerHTML = '';
+  currentTopic.queue = [trimmed];
+  currentQuestion = trimmed;
+  questionText.textContent = currentQuestion;
+  micBtn.classList.remove('disabled');
+  micStatus.textContent = 'Натисни мікрофон і відповідай';
+  transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
+}
+
+customTopicBtn.onclick = ()=>{
+  startCustomTopic(customTopicInput.value);
+  customTopicInput.value = '';
+};
+customTopicInput.onkeydown = (e)=>{
+  if(e.key === 'Enter'){
+    startCustomTopic(customTopicInput.value);
+    customTopicInput.value = '';
+  }
+};
+
 let selectedVoice = null;
 function pickFemaleVoice(){
   if(!('speechSynthesis' in window)) return;
@@ -422,16 +617,22 @@ if('speechSynthesis' in window){
   window.speechSynthesis.onvoiceschanged = pickFemaleVoice;
 }
 
-function speakEnglish(text){
-  if(!('speechSynthesis' in window)) return;
+function speakEnglish(text, onEnd){
+  if(!('speechSynthesis' in window)){ if(onEnd) onEnd(); return; }
   const avatarEl = document.getElementById('avatar');
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'en-US';
-  u.rate = 0.95;
+  u.rate = speechRate;
   if(selectedVoice) u.voice = selectedVoice;
   u.onstart = ()=> avatarEl && avatarEl.classList.add('speaking');
-  u.onend = ()=> avatarEl && avatarEl.classList.remove('speaking');
-  u.onerror = ()=> avatarEl && avatarEl.classList.remove('speaking');
+  u.onend = ()=>{
+    avatarEl && avatarEl.classList.remove('speaking');
+    if(onEnd) onEnd();
+  };
+  u.onerror = ()=>{
+    avatarEl && avatarEl.classList.remove('speaking');
+    if(onEnd) onEnd();
+  };
   window.speechSynthesis.cancel();
   window.speechSynthesis.speak(u);
 }
@@ -509,10 +710,23 @@ async function handleFinalTranscript(transcript){
     renderFeedback(transcript, result);
     conversationHistory.push({question: currentQuestion, transcript, corrected: result.corrected, hadErrors: result.errors.length>0});
     updateHistory();
-    sessionCount++;
-    if(result.errors.length===0) sessionClean++;
-    statCount.textContent = sessionCount;
-    statClean.textContent = sessionClean;
+
+    totalCount++;
+    if(result.errors.length===0) totalClean++;
+    result.errors.forEach(e=>{
+      const cat = categorizeMistake(e.explanation);
+      mistakeTally[cat.key] = (mistakeTally[cat.key] || 0) + 1;
+    });
+
+    const today = todayStr();
+    if(lastPracticeDate !== today){
+      streak = (lastPracticeDate === yesterdayStr()) ? streak + 1 : 1;
+      lastPracticeDate = today;
+    }
+    saveProgress();
+    updateStatsDisplay();
+    renderPatterns();
+
     if(result.next_question){
       currentQuestion = result.next_question;
       questionText.textContent = currentQuestion;
@@ -659,6 +873,8 @@ function renderFeedback(transcript, result){
     `).join('');
   }
 
+  const nextBtnHtml = autoMode ? '' : `<button class="next-btn" id="nextBtn">Наступне питання →</button>`;
+
   feedbackArea.innerHTML = `
     <div class="card feedback-card">
       <div class="feedback-label">Виправлення</div>
@@ -666,14 +882,31 @@ function renderFeedback(transcript, result){
       ${errorsHtml}
       <div class="encouragement">${escapeHtml(result.encouragement)}</div>
     </div>
-    <button class="next-btn" id="nextBtn">Наступне питання →</button>
+    ${nextBtnHtml}
   `;
-  document.getElementById('nextBtn').onclick = ()=>{
-    speakEnglish(currentQuestion);
+
+  function goToNextQuestion(){
     feedbackArea.innerHTML = '';
     transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
-  };
-  speakEnglish(result.corrected);
+  }
+
+  if(!autoMode){
+    document.getElementById('nextBtn').onclick = ()=>{
+      speakEnglish(currentQuestion);
+      goToNextQuestion();
+    };
+    speakEnglish(result.corrected);
+  } else {
+    // Auto mode: speak the correction, then the next question, then start listening automatically
+    speakEnglish(result.corrected, ()=>{
+      if(!autoMode) return; // user turned it off mid-sequence
+      goToNextQuestion();
+      speakEnglish(currentQuestion, ()=>{
+        if(!autoMode || !currentTopic) return;
+        startListening();
+      });
+    });
+  }
 }
 
 function updateHistory(){
