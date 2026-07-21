@@ -1,9 +1,14 @@
 /**
- * Cloudflare Worker: LLM-based grammar checker proxy.
+ * Cloudflare Worker: LLM-based grammar checker + reader/translator proxy.
  *
  * Uses Cloudflare Workers AI — free tier (10,000 "Neurons"/day, no card
  * needed), runs entirely inside your Cloudflare account. No external API
  * key to manage.
+ *
+ * Handles three actions, chosen by `action` in the POST body:
+ *   - "grammar"   (default if omitted, for backward compatibility): grammar check
+ *   - "translate": translate text between English and Ukrainian
+ *   - "fetch_url": fetch a web page and extract its readable text
  *
  * Deploy steps are in README-deploy.md next to this file.
  */
@@ -76,7 +81,7 @@ function buildUserContent(text, question) {
   return `Learner's transcript: "${text}"`;
 }
 
-async function runCheck(env, text, question) {
+async function runGrammarCheck(env, text, question) {
   const aiResponse = await env.AI.run(MODEL, {
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
@@ -95,6 +100,72 @@ async function runCheck(env, text, question) {
     parsed = JSON.parse(parsed);
   }
   return parsed;
+}
+
+async function runTranslate(env, text, targetLang) {
+  const targetName = targetLang === 'uk' ? 'Ukrainian' : 'English';
+  const aiResponse = await env.AI.run(MODEL, {
+    messages: [
+      {
+        role: 'system',
+        content: `You are a professional translator. Translate the user's text into ${targetName}. Respond with ONLY the translation itself — no notes, no quotation marks, no explanations, no "Here is the translation:" preamble.`,
+      },
+      { role: 'user', content: text },
+    ],
+    max_tokens: 1200,
+    temperature: 0.3,
+  });
+  return (aiResponse && aiResponse.response ? aiResponse.response : '').trim();
+}
+
+// Very lightweight HTML → plain text extraction. Not a full readability
+// parser, but good enough to pull out article text for text-to-speech.
+function htmlToText(html) {
+  let s = html;
+  s = s.replace(/<!--[\s\S]*?-->/g, ' ');
+  s = s.replace(/<(script|style|noscript|svg|header|footer|nav|form)[\s\S]*?<\/\1>/gi, ' ');
+  s = s.replace(/<br\s*\/?>/gi, '\n');
+  s = s.replace(/<\/(p|div|li|h1|h2|h3|h4|h5|h6|tr|blockquote)>/gi, '\n');
+  s = s.replace(/<[^>]+>/g, ' ');
+  const entities = { '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&apos;': "'" };
+  s = s.replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;|&apos;/g, (m) => entities[m]);
+  s = s.replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)));
+  s = s.replace(/[ \t]+/g, ' ');
+  s = s.split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
+  s = s.replace(/\n{2,}/g, '\n\n');
+  return s.trim();
+}
+
+const MAX_PAGE_TEXT_CHARS = 5000;
+
+async function runFetchUrl(url) {
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error('Посилання має починатись з http:// або https://');
+  }
+  let pageResp;
+  try {
+    pageResp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; VoiceCoachReader/1.0)' },
+    });
+  } catch (e) {
+    throw new Error('Не вдалося завантажити цю сторінку.');
+  }
+  if (!pageResp.ok) {
+    throw new Error(`Сторінка повернула помилку (${pageResp.status}).`);
+  }
+  const contentType = pageResp.headers.get('content-type') || '';
+  if (!contentType.includes('html') && !contentType.includes('text')) {
+    throw new Error('Це посилання не веде на текстову сторінку.');
+  }
+  const html = await pageResp.text();
+  let text = htmlToText(html);
+  if (!text) {
+    throw new Error('На цій сторінці не знайдено тексту для читання.');
+  }
+  if (text.length > MAX_PAGE_TEXT_CHARS) {
+    text = text.slice(0, MAX_PAGE_TEXT_CHARS) + '…';
+  }
+  return text;
 }
 
 export default {
@@ -117,42 +188,53 @@ export default {
       });
     }
 
+    const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+
     try {
       const body = await request.json();
+      const action = (body && body.action) || 'grammar';
+
+      if (action === 'fetch_url') {
+        const url = (body && body.url || '').toString().trim();
+        if (!url) return new Response(JSON.stringify({ error: 'Missing "url"' }), { status: 400, headers: jsonHeaders });
+        try {
+          const text = await runFetchUrl(url);
+          return new Response(JSON.stringify({ text }), { headers: jsonHeaders });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e.message || 'Fetch failed' }), { status: 502, headers: jsonHeaders });
+        }
+      }
+
+      if (action === 'translate') {
+        const text = (body && body.text || '').toString().trim();
+        const targetLang = body && body.targetLang === 'uk' ? 'uk' : 'en';
+        if (!text) return new Response(JSON.stringify({ error: 'Missing "text"' }), { status: 400, headers: jsonHeaders });
+        if (text.length > 4000) return new Response(JSON.stringify({ error: 'Text too long' }), { status: 400, headers: jsonHeaders });
+        const translated = await runTranslate(env, text, targetLang);
+        return new Response(JSON.stringify({ translated }), { headers: jsonHeaders });
+      }
+
+      // default: grammar check
       const text = (body && body.text || '').toString().trim();
       const question = (body && body.question || '').toString().trim().slice(0, 300);
-
-      if (!text) {
-        return new Response(JSON.stringify({ error: 'Missing "text"' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      if (text.length > 2000) {
-        return new Response(JSON.stringify({ error: 'Text too long' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      if (!text) return new Response(JSON.stringify({ error: 'Missing "text"' }), { status: 400, headers: jsonHeaders });
+      if (text.length > 2000) return new Response(JSON.stringify({ error: 'Text too long' }), { status: 400, headers: jsonHeaders });
 
       let parsed;
       try {
-        parsed = await runCheck(env, text, question);
+        parsed = await runGrammarCheck(env, text, question);
       } catch (e) {
         // One retry — occasionally the model/schema hiccups on the first try.
-        parsed = await runCheck(env, text, question);
+        parsed = await runGrammarCheck(env, text, question);
       }
-
       if (!parsed || typeof parsed.corrected !== 'string') parsed = { corrected: text, errors: [] };
       if (!Array.isArray(parsed.errors)) parsed.errors = [];
 
-      return new Response(JSON.stringify(parsed), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(JSON.stringify(parsed), { headers: jsonHeaders });
     } catch (err) {
       return new Response(JSON.stringify({ error: err.message || 'Unknown error' }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: jsonHeaders,
       });
     }
   },

@@ -133,6 +133,32 @@
   .corrected-text mark{background:rgba(185,166,240,.22);color:var(--lavender);padding:1px 4px;border-radius:4px;font-weight:600;}
   .no-errors{color:var(--success);font-weight:600;font-size:14px;margin-bottom:8px;}
 
+  .reader-card{margin-top:24px;}
+  .reader-title{font-family:'Fraunces',serif;font-weight:600;font-size:19px;margin:0 0 4px;}
+  .reader-sub{font-size:13px;color:var(--text-dim);line-height:1.5;margin:0 0 14px;}
+  .reader-input{
+    width:100%;min-height:88px;resize:vertical;
+    background:var(--bg-2);border:1px solid var(--border);border-radius:12px;
+    color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;
+    padding:12px 14px;margin-bottom:12px;
+  }
+  .reader-input:focus{outline:none;border-color:var(--lavender);}
+  .reader-btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+  .reader-btn{
+    flex:1 1 auto;padding:10px 12px;border-radius:10px;border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text);font-size:13px;font-weight:500;
+    cursor:pointer;white-space:nowrap;transition:border-color .15s ease;
+  }
+  .reader-btn:hover{border-color:var(--amber-dim);}
+  .reader-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .reader-btn.stop{background:var(--surface);color:var(--rose);border-color:rgba(240,116,138,.35);}
+  .reader-status{font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;min-height:16px;margin-top:2px;}
+  .reader-translation{
+    margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
+    font-size:14px;line-height:1.55;color:var(--text);
+  }
+  .reader-translation .tr-label{font-size:11px;color:var(--lavender);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
+
   .err-item{
     display:flex;flex-direction:column;gap:2px;
     padding:10px 0;border-top:1px solid var(--border);
@@ -142,6 +168,7 @@
   .err-swap .old{color:var(--rose);text-decoration:line-through;text-decoration-color:rgba(240,116,138,.5);}
   .err-swap .new{color:var(--success);}
   .err-explain{font-size:13px;color:var(--text-dim);line-height:1.4;}
+  .err-badge{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:rgba(185,166,240,.15);color:var(--lavender);font-family:'Inter',sans-serif;font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;vertical-align:middle;}
 
   .encouragement{
     margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
@@ -287,6 +314,23 @@
   <div class="history" id="historyArea" style="display:none;">
     <div class="history-title">Історія сесії</div>
     <div id="historyList"></div>
+  </div>
+
+  <div class="card reader-card">
+    <div class="reader-title">Слухати і перекладати</div>
+    <p class="reader-sub">Встав текст, або посилання на статтю — англійською чи українською.</p>
+    <textarea class="reader-input" id="readerInput" placeholder="Встав текст або посилання (https://...) тут..."></textarea>
+    <div class="reader-btns">
+      <button class="reader-btn" id="readerListenBtn">🔊 Прослухати як є</button>
+      <button class="reader-btn" id="readerToEnBtn">🇺🇦→🇬🇧 Перекласти й озвучити англійською</button>
+      <button class="reader-btn" id="readerToUkBtn">🇬🇧→🇺🇦 Перекласти й озвучити українською</button>
+      <button class="reader-btn stop" id="readerStopBtn" style="display:none;">⏹ Стоп</button>
+    </div>
+    <div class="reader-status" id="readerStatus"></div>
+    <div class="reader-translation" id="readerTranslation" style="display:none;">
+      <div class="tr-label">Переклад</div>
+      <div id="readerTranslationText"></div>
+    </div>
   </div>
 </div>
 
@@ -639,6 +683,32 @@ function speakEnglish(text, onEnd){
   window.speechSynthesis.speak(u);
 }
 
+// Generic multilingual TTS for the reader/translator tool below — picks the
+// best available voice for the given language rather than always English.
+function getVoiceForLang(langPrefix){
+  if(!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if(!voices.length) return null;
+  const matches = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(langPrefix));
+  if(!matches.length) return null;
+  const femaleHints = ['female','zira','samantha','victoria','karen','moira','tessa','fiona','susan','allison','ava','serena','kate','emma','joanna','salli','ivy','kendra','kimberly','amy','olivia','aria','jenny','libby','natasha'];
+  return matches.find(v => femaleHints.some(h => v.name.toLowerCase().includes(h))) || matches[0];
+}
+
+function speakText(text, langPrefix, langTag, onEnd){
+  if(!('speechSynthesis' in window)){ if(onEnd) onEnd(); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = langTag;
+  u.rate = speechRate;
+  const voice = getVoiceForLang(langPrefix);
+  if(voice) u.voice = voice;
+  u.onend = ()=>{ if(onEnd) onEnd(); };
+  u.onerror = ()=>{ if(onEnd) onEnd(); };
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+  return voice;
+}
+
 // speech recognition setup
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 if(!SR){
@@ -752,7 +822,7 @@ async function handleFinalTranscript(transcript){
 // single identifiable "rule" violation but is still not valid English.
 //
 // Deploy the worker (see worker.js + README) and paste its URL below.
-const GRAMMAR_WORKER_URL = 'https://english-grammar-checker.irina-lotus-domino.workers.dev/';
+const GRAMMAR_WORKER_URL = 'https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev';
 
 async function analyzeSpeech(transcript){
   if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
@@ -762,7 +832,7 @@ async function analyzeSpeech(transcript){
   const response = await fetch(GRAMMAR_WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: transcript, question: currentQuestion || '' })
+    body: JSON.stringify({ action: 'grammar', text: transcript, question: currentQuestion || '' })
   });
   if(!response.ok) throw new Error('Grammar check request failed');
   const data = await response.json();
@@ -771,7 +841,8 @@ async function analyzeSpeech(transcript){
   const errors = (data.errors || []).map(e => ({
     original: e.original || '',
     correction: e.correction || '',
-    explanation: e.explanation || ''
+    explanation: e.explanation || '',
+    category: e.category || ''
   }));
 
   return {
@@ -796,12 +867,16 @@ function renderFeedback(transcript, result){
   if(result.errors.length===0){
     errorsHtml = `<div class="no-errors">✓ Жодної помилки — чудово!</div>`;
   } else {
-    errorsHtml = result.errors.map(e=>`
+    errorsHtml = result.errors.map(e=>{
+      const catMeta = MISTAKE_CATEGORIES.find(c=>c.key===e.category);
+      const badge = catMeta ? `<span class="err-badge">${escapeHtml(catMeta.label)}</span>` : '';
+      return `
       <div class="err-item">
-        <div class="err-swap"><span class="old">${escapeHtml(e.original)}</span> → <span class="new">${escapeHtml(e.correction)}</span></div>
+        <div class="err-swap"><span class="old">${escapeHtml(e.original)}</span> → <span class="new">${escapeHtml(e.correction)}</span>${badge}</div>
         <div class="err-explain">${escapeHtml(e.explanation)}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   const nextBtnHtml = autoMode ? '' : `<button class="next-btn" id="nextBtn">Наступне питання →</button>`;
@@ -855,6 +930,109 @@ function escapeHtml(str){
   div.textContent = str;
   return div.innerHTML;
 }
+
+// ---- Reader / translator tool ----
+const readerInput = document.getElementById('readerInput');
+const readerListenBtn = document.getElementById('readerListenBtn');
+const readerToEnBtn = document.getElementById('readerToEnBtn');
+const readerToUkBtn = document.getElementById('readerToUkBtn');
+const readerStopBtn = document.getElementById('readerStopBtn');
+const readerStatus = document.getElementById('readerStatus');
+const readerTranslation = document.getElementById('readerTranslation');
+const readerTranslationText = document.getElementById('readerTranslationText');
+
+function checkWorkerConfigured(){
+  if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
+    throw new Error('URL воркера ще не налаштований — встав його в GRAMMAR_WORKER_URL.');
+  }
+}
+
+function isUrl(str){
+  return /^https?:\/\/\S+$/i.test(str.trim());
+}
+
+function looksUkrainian(text){
+  return /[а-яіїєґ]/i.test(text);
+}
+
+async function resolveReaderText(){
+  const raw = readerInput.value.trim();
+  if(!raw) throw new Error('Встав текст або посилання.');
+  if(!isUrl(raw)) return raw;
+
+  checkWorkerConfigured();
+  readerStatus.textContent = 'Завантажую сторінку…';
+  const resp = await fetch(GRAMMAR_WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'fetch_url', url: raw })
+  });
+  const data = await resp.json().catch(()=>({}));
+  if(!resp.ok || data.error) throw new Error(data.error || 'Не вдалося завантажити сторінку.');
+  if(!data.text) throw new Error('На сторінці не знайдено тексту.');
+  return data.text;
+}
+
+function setReaderBusy(busy){
+  [readerListenBtn, readerToEnBtn, readerToUkBtn].forEach(b => b.disabled = busy);
+  readerStopBtn.style.display = busy ? 'inline-block' : 'none';
+}
+
+readerStopBtn.onclick = ()=>{
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  setReaderBusy(false);
+  readerStatus.textContent = '';
+};
+
+readerListenBtn.onclick = async ()=>{
+  readerTranslation.style.display = 'none';
+  try{
+    const text = await resolveReaderText();
+    const ukr = looksUkrainian(text);
+    setReaderBusy(true);
+    readerStatus.textContent = 'Читаю…';
+    speakText(text, ukr ? 'uk' : 'en', ukr ? 'uk-UA' : 'en-US', ()=>{
+      setReaderBusy(false);
+      readerStatus.textContent = '';
+    });
+  }catch(err){
+    setReaderBusy(false);
+    readerStatus.textContent = err.message;
+  }
+};
+
+async function translateAndSpeak(targetLang){
+  readerTranslation.style.display = 'none';
+  try{
+    const text = await resolveReaderText();
+    checkWorkerConfigured();
+    setReaderBusy(true);
+    readerStatus.textContent = 'Перекладаю…';
+    const resp = await fetch(GRAMMAR_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'translate', text, targetLang })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || data.error) throw new Error(data.error || 'Не вдалося перекласти.');
+    const translated = data.translated || '';
+    readerTranslationText.textContent = translated;
+    readerTranslation.style.display = 'block';
+    readerStatus.textContent = 'Читаю…';
+    const ukr = targetLang === 'uk';
+    speakText(translated, ukr ? 'uk' : 'en', ukr ? 'uk-UA' : 'en-US', ()=>{
+      setReaderBusy(false);
+      readerStatus.textContent = '';
+    });
+  }catch(err){
+    setReaderBusy(false);
+    readerStatus.textContent = err.message;
+  }
+}
+
+readerToEnBtn.onclick = ()=> translateAndSpeak('en');
+readerToUkBtn.onclick = ()=> translateAndSpeak('uk');
+
 </script>
 </body>
 </html>
