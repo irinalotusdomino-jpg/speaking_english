@@ -62,10 +62,8 @@
   header p{margin:0;color:var(--text-dim);font-size:14px;line-height:1.5;}
 
   .topics{
-    display:flex;gap:8px;overflow-x:auto;padding:4px 0 18px;
-    scrollbar-width:none;
+    display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 18px;
   }
-  .topics::-webkit-scrollbar{display:none;}
   .chip{
     flex:0 0 auto;padding:8px 14px;border-radius:100px;
     background:var(--surface);border:1px solid var(--border);
@@ -228,27 +226,82 @@ const topics = [
   { id:'daily', label:'Щоденне життя', starters:[
     "Tell me about your morning routine.",
     "What did you have for breakfast today?",
-    "How do you usually spend your evenings?"
+    "How do you usually spend your evenings?",
+    "What time do you usually wake up?",
+    "What's one thing you do every single day?",
+    "How do you usually get to work or school?"
   ]},
   { id:'travel', label:'Подорожі', starters:[
     "What's a city you'd love to visit, and why?",
     "Tell me about a trip you remember well.",
-    "Do you prefer the mountains or the sea?"
+    "Do you prefer the mountains or the sea?",
+    "What's the best meal you've had while traveling?",
+    "Would you rather travel alone or with friends?",
+    "What's on your travel bucket list?"
   ]},
   { id:'work', label:'Співбесіда', starters:[
     "Can you tell me a little about yourself?",
     "What are you looking for in your next job?",
-    "Describe a challenge you handled well at work."
+    "Describe a challenge you handled well at work.",
+    "What are your biggest strengths?",
+    "Where do you see yourself in five years?",
+    "Why do you want to work for this company?"
   ]},
   { id:'hobbies', label:'Хобі', starters:[
     "What do you like to do in your free time?",
     "Is there a hobby you'd like to start this year?",
-    "What's a movie or book you enjoyed recently?"
+    "What's a movie or book you enjoyed recently?",
+    "How did you get into your favorite hobby?",
+    "Do you prefer indoor or outdoor activities?",
+    "What's something creative you enjoy doing?"
   ]},
   { id:'smalltalk', label:'Small talk', starters:[
     "How has your week been so far?",
     "What's the weather like where you are?",
-    "Do you have any plans for the weekend?"
+    "Do you have any plans for the weekend?",
+    "How's your day going so far?",
+    "What's something good that happened recently?",
+    "Any exciting news lately?"
+  ]},
+  { id:'food', label:'Їжа', starters:[
+    "What's your favorite dish to cook?",
+    "Do you prefer eating out or cooking at home?",
+    "What's a food you could never give up?",
+    "Tell me about a memorable meal you had.",
+    "What's a dish from your country you'd recommend?",
+    "Are you more of a sweet or savory person?"
+  ]},
+  { id:'movies', label:'Фільми та серіали', starters:[
+    "What's a show you're currently watching?",
+    "What's your all-time favorite movie?",
+    "Do you prefer movies or TV series?",
+    "Who's your favorite actor or director?",
+    "What's a movie that made you cry or laugh a lot?",
+    "Do you usually watch with subtitles or without?"
+  ]},
+  { id:'tech', label:'Технології', starters:[
+    "How much time do you spend on your phone each day?",
+    "What's an app you couldn't live without?",
+    "Do you think social media is more good or bad?",
+    "What's a piece of technology that changed your life?",
+    "Are you excited or worried about AI?",
+    "What was the last thing you bought online?"
+  ]},
+  { id:'sports', label:'Спорт', starters:[
+    "Do you play or watch any sports?",
+    "What's a sport you'd like to try someday?",
+    "How do you usually stay active?",
+    "Do you prefer working out alone or with others?",
+    "What's your favorite way to relax after exercise?",
+    "Have you ever been to a live sports event?"
+  ]},
+  { id:'future', label:'Мрії та плани', starters:[
+    "What's a goal you're working on right now?",
+    "Where do you imagine yourself living in ten years?",
+    "What's something new you'd like to learn?",
+    "If money wasn't an issue, what would you do?",
+    "What's a habit you're trying to build this year?",
+    "What does your ideal weekend look like?"
   ]}
 ];
 
@@ -352,12 +405,30 @@ replayBtn.onclick = ()=>{
   speakEnglish(currentQuestion);
 };
 
+let selectedVoice = null;
+function pickFemaleVoice(){
+  if(!('speechSynthesis' in window)) return;
+  const voices = window.speechSynthesis.getVoices();
+  if(!voices.length) return;
+  const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+  const pool = enVoices.length ? enVoices : voices;
+  const femaleHints = ['female','zira','samantha','victoria','karen','moira','tessa','fiona','susan','allison','ava','serena','kate','emma','joanna','salli','ivy','kendra','kimberly','amy','olivia','aria','jenny','libby','natasha'];
+  let voice = pool.find(v => femaleHints.some(h => v.name.toLowerCase().includes(h)));
+  if(!voice) voice = pool.find(v => !/male|david|mark|daniel|george|james|alex\b|fred|guy/i.test(v.name));
+  selectedVoice = voice || pool[0];
+}
+if('speechSynthesis' in window){
+  pickFemaleVoice();
+  window.speechSynthesis.onvoiceschanged = pickFemaleVoice;
+}
+
 function speakEnglish(text){
   if(!('speechSynthesis' in window)) return;
   const avatarEl = document.getElementById('avatar');
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'en-US';
   u.rate = 0.95;
+  if(selectedVoice) u.voice = selectedVoice;
   u.onstart = ()=> avatarEl && avatarEl.classList.add('speaking');
   u.onend = ()=> avatarEl && avatarEl.classList.remove('speaking');
   u.onerror = ()=> avatarEl && avatarEl.classList.remove('speaking');
