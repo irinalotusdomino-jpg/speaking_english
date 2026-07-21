@@ -752,7 +752,7 @@ async function handleFinalTranscript(transcript){
 // single identifiable "rule" violation but is still not valid English.
 //
 // Deploy the worker (see worker.js + README) and paste its URL below.
-const GRAMMAR_WORKER_URL = 'https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev';
+const GRAMMAR_WORKER_URL = 'https://english-grammar-checker.irina-lotus-domino.workers.dev/';
 
 async function analyzeSpeech(transcript){
   if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
