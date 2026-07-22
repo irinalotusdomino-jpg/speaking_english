@@ -246,10 +246,12 @@
   .idiom-label{font-size:11px;color:var(--lavender);text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
   .idiom-refresh{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px;}
   .idiom-refresh:hover{color:var(--lavender);}
-  .idiom-phrase{font-family:'Fraunces',serif;font-weight:600;font-size:20px;margin-bottom:6px;}
+  .idiom-phrase{font-family:'Fraunces',serif;font-weight:600;font-size:20px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  .idiom-speak-btn{background:none;border:none;cursor:pointer;font-size:15px;padding:2px 4px;border-radius:6px;color:var(--lavender);flex-shrink:0;line-height:1;}
+  .idiom-speak-btn:hover{background:rgba(185,166,240,.12);}
   .idiom-meaning{font-size:13px;color:var(--text-dim);margin-bottom:10px;line-height:1.5;}
   .idiom-example{font-size:14px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);}
-  .idiom-example .en{margin-bottom:4px;}
+  .idiom-example .en{margin-bottom:4px;display:flex;align-items:center;gap:8px;}
   .idiom-example .uk{color:var(--text-dim);font-size:13px;}
   .idiom-loading{font-size:13px;color:var(--text-dim);}
 
@@ -1036,7 +1038,7 @@ async function handleFinalTranscript(transcript){
 // single identifiable "rule" violation but is still not valid English.
 //
 // Deploy the worker (see worker.js + README) and paste its URL below.
-const GRAMMAR_WORKER_URL = 'https://english-grammar-checker.irina-lotus-domino.workers.dev';
+const GRAMMAR_WORKER_URL = 'https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev';
 
 async function analyzeSpeech(transcript){
   if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
@@ -1285,13 +1287,15 @@ const IDIOM_CACHE_KEY = 'voiceCoachIdiomOfDay';
 
 function renderIdiom(idiom){
   idiomBody.innerHTML = `
-    <div class="idiom-phrase">${escapeHtml(idiom.phrase)}</div>
+    <div class="idiom-phrase"><span>${escapeHtml(idiom.phrase)}</span><button class="idiom-speak-btn" id="idiomSpeakPhraseBtn" title="Прослухати">🔊</button></div>
     <div class="idiom-meaning">${escapeHtml(idiom.meaning_uk)}</div>
     <div class="idiom-example">
-      <div class="en">${escapeHtml(idiom.example_en)}</div>
+      <div class="en"><span>${escapeHtml(idiom.example_en)}</span><button class="idiom-speak-btn" id="idiomSpeakExampleBtn" title="Прослухати">🔊</button></div>
       <div class="uk">${escapeHtml(idiom.example_uk)}</div>
     </div>
   `;
+  document.getElementById('idiomSpeakPhraseBtn').onclick = ()=> speakEnglish(idiom.phrase);
+  document.getElementById('idiomSpeakExampleBtn').onclick = ()=> speakEnglish(idiom.example_en);
 }
 
 async function fetchIdiom(seed){
