@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Voice Coach — практика англійської</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#151830;
+    --bg-2:#1c2040;
+    --surface:#20244a;
+    --surface-2:#282c58;
+    --text:#f3f1fb;
+    --text-dim:#a3a4c9;
+    --amber:#f2a65a;
+    --amber-dim:#7a5a34;
+    --lavender:#b9a6f0;
+    --rose:#f0748a;
+    --success:#7fd8a6;
+    --border:#33366a;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 600px 300px at 20% -5%, rgba(242,166,90,0.10), transparent),
+      radial-gradient(ellipse 500px 300px at 90% 10%, rgba(185,166,240,0.08), transparent),
+      var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:520px;margin:0 auto;padding:28px 18px 60px;}
+
+.avatar-wrap{display:flex;justify-content:center;margin-bottom:16px;}
+  .avatar{
+    position:relative;width:104px;height:104px;border-radius:50%;
+    overflow:hidden;box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--amber-dim), 0 8px 22px rgba(0,0,0,.35);
+  }
+  .avatar img{
+    position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;
+    transition:opacity .25s ease;
+  }
+  .avatar img.talk{opacity:0;}
+  .avatar.speaking img.idle{opacity:0;}
+  .avatar.speaking img.talk{opacity:1;}
+  .avatar.speaking{box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--lavender), 0 8px 22px rgba(185,166,240,.3);}
+
+  header{margin-bottom:22px;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--amber);margin-bottom:6px;
+  }
+  h1{
+    font-family:'Fraunces',serif;font-weight:600;font-size:30px;
+    margin:0 0 6px;letter-spacing:-.01em;
+  }
+  header p{margin:0;color:var(--text-dim);font-size:14px;line-height:1.5;}
+
+  .topics{
+    display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 18px;
+  }
+  .chip{
+    flex:0 0 auto;padding:8px 14px;border-radius:100px;
+    background:var(--surface);border:1px solid var(--border);
+    color:var(--text-dim);font-size:13px;font-weight:500;cursor:pointer;
+    transition:all .15s ease;white-space:nowrap;
+  }
+  .chip:hover{border-color:var(--amber-dim);}
+  .chip.active{background:var(--amber);color:#251505;border-color:var(--amber);}
+
+  .card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:18px;padding:22px;margin-bottom:16px;
+  }
+
+  .question-card{position:relative;}
+  .question-label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
+  .question-text{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-size:21px;line-height:1.4;color:var(--text);}
+  .replay-btn{
+    position:absolute;top:20px;right:20px;width:34px;height:34px;border-radius:50%;
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;
+  }
+  .replay-btn:hover{color:var(--amber);border-color:var(--amber-dim);}
+
+  .mic-zone{display:flex;flex-direction:column;align-items:center;padding:30px 0 8px;}
+  .mic-ring{
+    position:relative;width:132px;height:132px;display:flex;align-items:center;justify-content:center;
+    margin-bottom:14px;
+  }
+  .bar{
+    position:absolute;width:4px;border-radius:4px;background:var(--amber);
+    opacity:0;transform-origin:center;
+  }
+  .mic-btn{
+    width:84px;height:84px;border-radius:50%;border:none;cursor:pointer;
+    background:linear-gradient(160deg,var(--amber),#d97f3a);
+    color:#251505;font-size:28px;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 20px rgba(242,166,90,.28);
+    transition:transform .15s ease, box-shadow .15s ease;
+    z-index:2;
+  }
+  .mic-btn:active{transform:scale(.95);}
+  .mic-btn.listening{
+    background:linear-gradient(160deg,#e85a6e,var(--rose));
+    box-shadow:0 6px 24px rgba(240,116,138,.35);
+  }
+  .mic-btn.disabled{opacity:.4;cursor:not-allowed;}
+  .mic-status{font-size:13px;color:var(--text-dim);height:18px;font-family:'JetBrains Mono',monospace;}
+  .mic-ring.active .bar{animation:wave 1s ease-in-out infinite;}
+
+  @keyframes wave{
+    0%,100%{opacity:.35;transform:scaleY(.4);}
+    50%{opacity:1;transform:scaleY(1);}
+  }
+
+  .transcript-box{
+    font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.6;color:var(--text-dim);
+    border-left:2px solid var(--border);padding-left:14px;margin:16px 0;min-height:22px;
+  }
+  .transcript-box.live{color:var(--text);border-color:var(--rose);}
+  .transcript-box .placeholder{opacity:.5;font-style:italic;}
+
+  .feedback-card{border-color:var(--lavender);animation:fadeIn .35s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  .feedback-label{font-size:11px;color:var(--lavender);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
+  .corrected-text{font-size:16px;line-height:1.6;margin-bottom:14px;}
+  .corrected-text mark{background:rgba(185,166,240,.22);color:var(--lavender);padding:1px 4px;border-radius:4px;font-weight:600;}
+  .no-errors{color:var(--success);font-weight:600;font-size:14px;margin-bottom:8px;}
+
+  .reader-card{margin-top:24px;}
+  .reader-title{font-family:'Fraunces',serif;font-weight:600;font-size:19px;margin:0 0 4px;}
+  .reader-sub{font-size:13px;color:var(--text-dim);line-height:1.5;margin:0 0 14px;}
+  .reader-input{
+    width:100%;min-height:88px;resize:vertical;
+    background:var(--bg-2);border:1px solid var(--border);border-radius:12px;
+    color:var(--text);font-family:'Inter',sans-serif;font-size:14px;line-height:1.5;
+    padding:12px 14px;margin-bottom:12px;
+  }
+  .reader-input:focus{outline:none;border-color:var(--lavender);}
+  .reader-btns{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+  .reader-btn{
+    flex:1 1 auto;padding:10px 12px;border-radius:10px;border:1px solid var(--border);
+    background:var(--surface-2);color:var(--text);font-size:13px;font-weight:500;
+    cursor:pointer;white-space:nowrap;transition:border-color .15s ease;
+  }
+  .reader-btn:hover{border-color:var(--amber-dim);}
+  .reader-btn:disabled{opacity:.5;cursor:not-allowed;}
+  .reader-btn.stop{background:var(--surface);color:var(--rose);border-color:rgba(240,116,138,.35);}
+  .reader-status{font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;min-height:16px;margin-top:2px;}
+  .reader-translation{
+    margin-top:12px;padding-top:12px;border-top:1px solid var(--border);
+    font-size:14px;line-height:1.55;color:var(--text);
+  }
+  .reader-translation .tr-label{font-size:11px;color:var(--lavender);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;font-family:'JetBrains Mono',monospace;}
+
+  .err-item{
+    display:flex;flex-direction:column;gap:2px;
+    padding:10px 0;border-top:1px solid var(--border);
+  }
+  .err-item:first-of-type{border-top:none;}
+  .err-swap{font-family:'JetBrains Mono',monospace;font-size:13px;}
+  .err-swap .old{color:var(--rose);text-decoration:line-through;text-decoration-color:rgba(240,116,138,.5);}
+  .err-swap .new{color:var(--success);}
+  .err-explain{font-size:13px;color:var(--text-dim);line-height:1.4;}
+  .err-badge{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:999px;background:rgba(185,166,240,.15);color:var(--lavender);font-family:'Inter',sans-serif;font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;vertical-align:middle;}
+
+  .encouragement{
+    margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
+    font-size:14px;color:var(--text);
+  }
+
+  .next-btn{
+    width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
+    background:var(--surface-2);color:var(--text);font-weight:600;font-size:14px;
+    border:1px solid var(--border);
+  }
+  .next-btn:hover{border-color:var(--lavender);color:var(--lavender);}
+
+  .history{margin-top:26px;}
+  .history-title{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
+  .hist-item{padding:10px 0;border-top:1px solid var(--border);font-size:13px;color:var(--text-dim);}
+  .hist-item:first-child{border-top:none;}
+  .hist-item b{color:var(--text);font-weight:500;}
+
+  .warn{
+    background:rgba(240,116,138,.1);border:1px solid rgba(240,116,138,.35);
+    color:#ffc9d3;padding:12px 14px;border-radius:12px;font-size:13px;margin-bottom:16px;line-height:1.5;
+  }
+  .loading-dots::after{content:'';animation:dots 1.2s steps(4,end) infinite;}
+  @keyframes dots{0%{content:'';}25%{content:'.';}50%{content:'..';}75%{content:'...';}100%{content:'';}}
+
+  .custom-topic-row{display:flex;gap:8px;margin-bottom:18px;}
+  .custom-topic-row input{
+    flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:11px 14px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;
+  }
+  .custom-topic-row input::placeholder{color:var(--text-dim);}
+  .custom-topic-row input:focus{outline:none;border-color:var(--lavender);}
+  .custom-topic-row button{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    border-radius:12px;padding:0 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;
+  }
+  .custom-topic-row button:hover{border-color:var(--lavender);color:var(--lavender);}
+
+  .control-row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:12px 16px;margin-bottom:12px;font-size:13px;
+  }
+  .control-row .ctrl-label{color:var(--text-dim);}
+  .switch{position:relative;width:40px;height:22px;flex-shrink:0;}
+  .switch input{opacity:0;width:0;height:0;}
+  .switch .track{
+    position:absolute;inset:0;background:var(--surface-2);border:1px solid var(--border);
+    border-radius:100px;cursor:pointer;transition:background .15s ease;
+  }
+  .switch .track::before{
+    content:'';position:absolute;width:16px;height:16px;left:2px;top:2px;
+    background:var(--text-dim);border-radius:50%;transition:transform .15s ease, background .15s ease;
+  }
+  .switch input:checked + .track{background:var(--amber-dim);border-color:var(--amber);}
+  .switch input:checked + .track::before{transform:translateX(18px);background:var(--amber);}
+
+  .speed-slider{display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end;}
+  .speed-slider input[type="range"]{width:110px;accent-color:var(--lavender);}
+  .speed-slider .speed-val{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;width:32px;text-align:right;}
+
+  .stat-row{display:flex;gap:12px;margin-bottom:18px;}
+  .stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 10px;text-align:center;}
+  .stat .num{font-family:'Fraunces',serif;font-size:20px;font-weight:600;}
+  .stat .lbl{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;}
+
+  .patterns-card{display:none;}
+  .patterns-card .feedback-label{color:var(--amber);}
+  .pattern-item{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-top:1px solid var(--border);}
+  .pattern-item:first-of-type{border-top:none;}
+  .pattern-item .cnt{color:var(--amber);font-family:'JetBrains Mono',monospace;}
+
+  .idiom-card{background:linear-gradient(135deg, rgba(185,166,240,.10), rgba(240,180,110,.08));}
+  .idiom-label{font-size:11px;color:var(--lavender);text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+  .idiom-refresh{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:6px;}
+  .idiom-refresh:hover{color:var(--lavender);}
+  .idiom-phrase{font-family:'Fraunces',serif;font-weight:600;font-size:20px;margin-bottom:6px;}
+  .idiom-meaning{font-size:13px;color:var(--text-dim);margin-bottom:10px;line-height:1.5;}
+  .idiom-example{font-size:14px;line-height:1.5;padding-top:10px;border-top:1px solid var(--border);}
+  .idiom-example .en{margin-bottom:4px;}
+  .idiom-example .uk{color:var(--text-dim);font-size:13px;}
+  .idiom-loading{font-size:13px;color:var(--text-dim);}
+
+  .upgrades-block{margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+  .upgrades-title{font-size:11px;color:var(--amber);text-transform:uppercase;letter-spacing:.08em;font-family:'JetBrains Mono',monospace;margin-bottom:8px;}
+  .upgrade-item{font-size:13px;line-height:1.5;margin-bottom:6px;}
+  .upgrade-item .word{color:var(--text-dim);text-decoration:line-through;text-decoration-color:rgba(240,180,110,.4);}
+  .upgrade-item .arrow{color:var(--text-dim);margin:0 4px;}
+  .upgrade-item .sugg{color:var(--success);}
+
+  .chart-card .feedback-label{color:var(--lavender);margin-bottom:12px;}
+  .chart-bars{display:flex;align-items:flex-end;gap:6px;height:90px;}
+  .chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;}
+  .chart-bar{width:100%;max-width:26px;border-radius:4px 4px 0 0;background:var(--border);position:relative;min-height:3px;}
+  .chart-bar .fill{position:absolute;bottom:0;left:0;right:0;border-radius:4px 4px 0 0;background:var(--success);}
+  .chart-day-lbl{font-size:9px;color:var(--text-dim);margin-top:6px;font-family:'JetBrains Mono',monospace;}
+  .chart-empty{font-size:13px;color:var(--text-dim);}
+
+  .flash-card .feedback-label{color:var(--rose);margin-bottom:10px;}
+  .flash-body{background:var(--bg-2);border:1px solid var(--border);border-radius:12px;padding:16px;min-height:70px;display:flex;flex-direction:column;justify-content:center;}
+  .flash-front{font-family:'JetBrains Mono',monospace;font-size:14px;text-decoration:line-through;text-decoration-color:rgba(240,116,138,.5);color:var(--text-dim);}
+  .flash-back{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--success);margin-top:8px;}
+  .flash-explain{font-size:12px;color:var(--text-dim);margin-top:8px;line-height:1.4;}
+  .flash-empty{font-size:13px;color:var(--text-dim);}
+  .flash-btns{display:flex;gap:8px;margin-top:12px;}
+  .flash-btn{flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:13px;cursor:pointer;}
+  .flash-btn:hover{border-color:var(--amber-dim);}
+  .flash-progress{font-size:11px;color:var(--text-dim);text-align:center;margin-top:6px;font-family:'JetBrains Mono',monospace;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="avatar-wrap">
+    <div class="avatar" id="avatar">
+      <img class="idle" src="avatar-idle.jpg" alt="Аватар співрозмовниці">
+      <img class="talk" src="avatar-talk.jpg" alt="Аватар співрозмовниці говорить">
+    </div>
+  </div>
+
+  <header>
+    <div class="eyebrow">voice coach · англійська вголос</div>
+    <h1>Говори — я підкажу</h1>
+    <p>Обери тему, натисни мікрофон і відповідай англійською. Я запишу, що ти сказала, і покажу виправлення.</p>
+  </header>
+
+  <div id="warnBox"></div>
+
+  <div class="card idiom-card" id="idiomCard">
+    <div class="idiom-label">
+      <span>Фраза дня</span>
+      <button class="idiom-refresh" id="idiomRefreshBtn" title="Інша фраза">🔄</button>
+    </div>
+    <div id="idiomBody"><div class="idiom-loading">Завантажую фразу…</div></div>
+  </div>
+
+  <div class="topics" id="topics"></div>
+
+  <div class="custom-topic-row">
+    <input type="text" id="customTopicInput" placeholder="Або введи своє питання англійською...">
+    <button id="customTopicBtn">Почати</button>
+  </div>
+
+  <div class="control-row">
+    <span class="ctrl-label">Розмова без пауз</span>
+    <label class="switch">
+      <input type="checkbox" id="autoModeToggle">
+      <span class="track"></span>
+    </label>
+  </div>
+
+  <div class="control-row">
+    <span class="ctrl-label">Режим діалогу (наступне питання враховує твою відповідь)</span>
+    <label class="switch">
+      <input type="checkbox" id="dialogueModeToggle">
+      <span class="track"></span>
+    </label>
+  </div>
+
+  <div class="control-row">
+    <span class="ctrl-label">Швидкість голосу</span>
+    <div class="speed-slider">
+      <input type="range" id="speedSlider" min="0.7" max="1.2" step="0.05" value="0.95">
+      <span class="speed-val" id="speedVal">0.95×</span>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat"><div class="num" id="statCount">0</div><div class="lbl">Речень</div></div>
+    <div class="stat"><div class="num" id="statClean">0</div><div class="lbl">Без помилок</div></div>
+    <div class="stat"><div class="num" id="statStreak">0</div><div class="lbl">Днів поспіль</div></div>
+  </div>
+
+  <div class="card chart-card" id="chartCard" style="display:none;">
+    <div class="feedback-label">Прогрес за останні дні</div>
+    <div id="chartBody"></div>
+  </div>
+
+  <div class="card patterns-card" id="patternsCard">
+    <div class="feedback-label">Найчастіші помилки</div>
+    <div id="patternsList"></div>
+  </div>
+
+  <div class="card flash-card" id="flashCard" style="display:none;">
+    <div class="feedback-label">Картки твоїх помилок</div>
+    <div id="flashBody"></div>
+  </div>
+
+  <div class="card question-card">
+    <button class="replay-btn" id="replayBtn" title="Прослухати питання">▶</button>
+    <div class="question-label">Питання</div>
+    <div class="question-text" id="questionText">Обери тему вище, щоб почати</div>
+  </div>
+
+  <div class="mic-zone">
+    <div class="mic-ring" id="micRing">
+      <button class="mic-btn disabled" id="micBtn">🎤</button>
+    </div>
+    <div class="mic-status" id="micStatus">Обери тему, щоб почати</div>
+  </div>
+
+  <div class="transcript-box" id="transcriptBox"><span class="placeholder">Тут з'явиться те, що ти скажеш...</span></div>
+
+  <div id="feedbackArea"></div>
+
+  <div class="history" id="historyArea" style="display:none;">
+    <div class="history-title">Історія сесії</div>
+    <div id="historyList"></div>
+  </div>
+
+  <div class="card reader-card">
+    <div class="reader-title">Слухати і перекладати</div>
+    <p class="reader-sub">Встав текст, або посилання на статтю — англійською чи українською.</p>
+    <textarea class="reader-input" id="readerInput" placeholder="Встав текст або посилання (https://...) тут..."></textarea>
+    <div class="reader-btns">
+      <button class="reader-btn" id="readerListenBtn">🔊 Прослухати як є</button>
+      <button class="reader-btn" id="readerToEnBtn">🇺🇦→🇬🇧 Перекласти й озвучити англійською</button>
+      <button class="reader-btn" id="readerToUkBtn">🇬🇧→🇺🇦 Перекласти й озвучити українською</button>
+      <button class="reader-btn stop" id="readerStopBtn" style="display:none;">⏹ Стоп</button>
+    </div>
+    <div class="reader-status" id="readerStatus"></div>
+    <div class="reader-translation" id="readerTranslation" style="display:none;">
+      <div class="tr-label">Переклад</div>
+      <div id="readerTranslationText"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const topics = [
+  { id:'daily', label:'Щоденне життя', starters:[
+    "Tell me about your morning routine.",
+    "What did you have for breakfast today?",
+    "How do you usually spend your evenings?",
+    "What time do you usually wake up?",
+    "What's one thing you do every single day?",
+    "How do you usually get to work or school?"
+  ]},
+  { id:'travel', label:'Подорожі', starters:[
+    "What's a city you'd love to visit, and why?",
+    "Tell me about a trip you remember well.",
+    "Do you prefer the mountains or the sea?",
+    "What's the best meal you've had while traveling?",
+    "Would you rather travel alone or with friends?",
+    "What's on your travel bucket list?"
+  ]},
+  { id:'work', label:'Співбесіда', starters:[
+    "Can you tell me a little about yourself?",
+    "What are you looking for in your next job?",
+    "Describe a challenge you handled well at work.",
+    "What are your biggest strengths?",
+    "Where do you see yourself in five years?",
+    "Why do you want to work for this company?"
+  ]},
+  { id:'hobbies', label:'Хобі', starters:[
+    "What do you like to do in your free time?",
+    "Is there a hobby you'd like to start this year?",
+    "What's a movie or book you enjoyed recently?",
+    "How did you get into your favorite hobby?",
+    "Do you prefer indoor or outdoor activities?",
+    "What's something creative you enjoy doing?"
+  ]},
+  { id:'smalltalk', label:'Small talk', starters:[
+    "How has your week been so far?",
+    "What's the weather like where you are?",
+    "Do you have any plans for the weekend?",
+    "How's your day going so far?",
+    "What's something good that happened recently?",
+    "Any exciting news lately?"
+  ]},
+  { id:'food', label:'Їжа', starters:[
+    "What's your favorite dish to cook?",
+    "Do you prefer eating out or cooking at home?",
+    "What's a food you could never give up?",
+    "Tell me about a memorable meal you had.",
+    "What's a dish from your country you'd recommend?",
+    "Are you more of a sweet or savory person?"
+  ]},
+  { id:'movies', label:'Фільми та серіали', starters:[
+    "What's a show you're currently watching?",
+    "What's your all-time favorite movie?",
+    "Do you prefer movies or TV series?",
+    "Who's your favorite actor or director?",
+    "What's a movie that made you cry or laugh a lot?",
+    "Do you usually watch with subtitles or without?"
+  ]},
+  { id:'tech', label:'Технології', starters:[
+    "How much time do you spend on your phone each day?",
+    "What's an app you couldn't live without?",
+    "Do you think social media is more good or bad?",
+    "What's a piece of technology that changed your life?",
+    "Are you excited or worried about AI?",
+    "What was the last thing you bought online?"
+  ]},
+  { id:'sports', label:'Спорт', starters:[
+    "Do you play or watch any sports?",
+    "What's a sport you'd like to try someday?",
+    "How do you usually stay active?",
+    "Do you prefer working out alone or with others?",
+    "What's your favorite way to relax after exercise?",
+    "Have you ever been to a live sports event?"
+  ]},
+  { id:'future', label:'Мрії та плани', starters:[
+    "What's a goal you're working on right now?",
+    "Where do you imagine yourself living in ten years?",
+    "What's something new you'd like to learn?",
+    "If money wasn't an issue, what would you do?",
+    "What's a habit you're trying to build this year?",
+    "What does your ideal weekend look like?"
+  ]}
+];
+
+let currentTopic = null;
+let currentQuestion = "";
+let conversationHistory = []; // {question, transcript, corrected}
+let recognition = null;
+let listening = false;
+let totalCount = 0;
+let totalClean = 0;
+let mistakeTally = {};
+let streak = 0;
+let lastPracticeDate = null;
+let speechRate = 0.95;
+let dailyHistory = {}; // { 'YYYY-MM-DD': {count, clean} }
+let errorSamples = []; // [{original, correction, explanation, category}] recent, capped
+let dialogueMode = false;
+
+const STORAGE_KEY = 'voiceCoachProgress';
+const MAX_ERROR_SAMPLES = 40;
+const MAX_DAILY_HISTORY_DAYS = 30;
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function yesterdayStr(){
+  const d = new Date();
+  d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
+
+function loadProgress(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    totalCount = data.totalCount || 0;
+    totalClean = data.totalClean || 0;
+    mistakeTally = data.mistakeTally || {};
+    streak = data.streak || 0;
+    lastPracticeDate = data.lastPracticeDate || null;
+    speechRate = typeof data.speechRate === 'number' ? data.speechRate : 0.95;
+    dailyHistory = data.dailyHistory || {};
+    errorSamples = Array.isArray(data.errorSamples) ? data.errorSamples : [];
+  }catch(err){ /* localStorage unavailable or corrupted — start fresh */ }
+}
+
+function saveProgress(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      totalCount, totalClean, mistakeTally, streak, lastPracticeDate, speechRate, dailyHistory, errorSamples
+    }));
+  }catch(err){ /* storage full or blocked — silently skip persistence */ }
+}
+
+function recordDailyResult(hadErrors){
+  const day = todayStr();
+  if(!dailyHistory[day]) dailyHistory[day] = { count:0, clean:0 };
+  dailyHistory[day].count++;
+  if(!hadErrors) dailyHistory[day].clean++;
+  // keep only the most recent N days
+  const days = Object.keys(dailyHistory).sort();
+  if(days.length > MAX_DAILY_HISTORY_DAYS){
+    days.slice(0, days.length - MAX_DAILY_HISTORY_DAYS).forEach(d => delete dailyHistory[d]);
+  }
+}
+
+function recordErrorSamples(errors){
+  errors.forEach(e=>{
+    if(!e.original || !e.correction) return;
+    errorSamples.push({ original:e.original, correction:e.correction, explanation:e.explanation||'', category:e.category||'other' });
+  });
+  if(errorSamples.length > MAX_ERROR_SAMPLES){
+    errorSamples = errorSamples.slice(errorSamples.length - MAX_ERROR_SAMPLES);
+  }
+}
+
+const MISTAKE_CATEGORIES = [
+  { key:'spelling',     label:'Орфографія',              test:/spell|misspell|typo|орфограф|написанн/i },
+  { key:'articles',     label:'Артиклі (a/an/the)',      test:/article|артикл/i },
+  { key:'tenses',       label:'Часи дієслів',            test:/tense|past simple|present simple|future|verb form|\bчас[іу]?\b|минул|майбутн|теперішн/i },
+  { key:'agreement',    label:'Узгодження підмет-присудок', test:/agreement|does not agree|subject.?verb|узгодженн/i },
+  { key:'prepositions', label:'Прийменники',             test:/preposition|прийменник/i },
+  { key:'plurals',      label:'Множина іменників',       test:/plural|множин/i },
+  { key:'word-choice',  label:'Вибір слова',             test:/use .* instead|confused word|wrong word|word choice|вибір слова|не те слово/i },
+  { key:'word-order',   label:'Порядок слів',            test:/word order|порядок слів/i },
+  { key:'structure',    label:'Структура речення',       test:/sentence structure|awkward|fragment|run-on|incomplete sentence|rephrase|структур[аи] речення|незрозуміл/i }
+];
+function categorizeMistake(explanation){
+  for(const c of MISTAKE_CATEGORIES){
+    if(c.test.test(explanation)) return c;
+  }
+  return { key:'other', label:'Інше' };
+}
+
+function renderPatterns(){
+  const entries = Object.entries(mistakeTally).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  if(entries.length === 0){
+    patternsCard.style.display = 'none';
+    return;
+  }
+  patternsCard.style.display = 'block';
+  patternsList.innerHTML = entries.map(([key,count])=>{
+    const meta = MISTAKE_CATEGORIES.find(c=>c.key===key);
+    const label = meta ? meta.label : 'Інше';
+    return `<div class="pattern-item"><span>${escapeHtml(label)}</span><span class="cnt">${count}</span></div>`;
+  }).join('');
+}
+
+function updateStatsDisplay(){
+  statCount.textContent = totalCount;
+  statClean.textContent = totalClean;
+  statStreak.textContent = streak;
+}
+
+function last7DayKeys(){
+  const keys = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date();
+    d.setDate(d.getDate()-i);
+    keys.push(d.toISOString().slice(0,10));
+  }
+  return keys;
+}
+
+function renderChart(){
+  const keys = last7DayKeys();
+  const hasAny = keys.some(k => dailyHistory[k] && dailyHistory[k].count > 0);
+  if(!hasAny){
+    chartCard.style.display = 'none';
+    return;
+  }
+  chartCard.style.display = 'block';
+  const maxCount = Math.max(1, ...keys.map(k => (dailyHistory[k] ? dailyHistory[k].count : 0)));
+  const dayNames = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+  chartBody.innerHTML = `
+    <div class="chart-bars">
+      ${keys.map(k=>{
+        const entry = dailyHistory[k] || { count:0, clean:0 };
+        const heightPct = entry.count ? Math.max(6, Math.round((entry.count / maxCount) * 100)) : 3;
+        const cleanPct = entry.count ? Math.round((entry.clean / entry.count) * 100) : 0;
+        const dayName = dayNames[new Date(k + 'T00:00:00').getDay()];
+        return `
+          <div class="chart-bar-wrap" title="${entry.count} речень, ${entry.clean} без помилок">
+            <div class="chart-bar" style="height:${heightPct}%;">
+              <div class="fill" style="height:${cleanPct}%;"></div>
+            </div>
+            <div class="chart-day-lbl">${dayName}</div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+let flashcardIndex = 0;
+let flashcardRevealed = false;
+
+function renderFlashcards(){
+  if(!errorSamples.length){
+    flashCard.style.display = 'none';
+    return;
+  }
+  flashCard.style.display = 'block';
+  if(flashcardIndex >= errorSamples.length) flashcardIndex = 0;
+  const card = errorSamples[errorSamples.length - 1 - flashcardIndex]; // most recent first
+  flashBody.innerHTML = `
+    <div class="flash-body">
+      <div class="flash-front">${escapeHtml(card.original)}</div>
+      ${flashcardRevealed ? `
+        <div class="flash-back">${escapeHtml(card.correction)}</div>
+        <div class="flash-explain">${escapeHtml(card.explanation)}</div>
+      ` : ''}
+    </div>
+    <div class="flash-btns">
+      <button class="flash-btn" id="flashRevealBtn">${flashcardRevealed ? 'Сховати' : 'Показати виправлення'}</button>
+      <button class="flash-btn" id="flashNextBtn">Наступна →</button>
+    </div>
+    <div class="flash-progress">${flashcardIndex+1} / ${errorSamples.length}</div>
+  `;
+  document.getElementById('flashRevealBtn').onclick = ()=>{
+    flashcardRevealed = !flashcardRevealed;
+    renderFlashcards();
+  };
+  document.getElementById('flashNextBtn').onclick = ()=>{
+    flashcardIndex = (flashcardIndex + 1) % errorSamples.length;
+    flashcardRevealed = false;
+    renderFlashcards();
+  };
+}
+
+const topicsEl = document.getElementById('topics');
+const questionText = document.getElementById('questionText');
+const micBtn = document.getElementById('micBtn');
+const micRing = document.getElementById('micRing');
+const micStatus = document.getElementById('micStatus');
+const transcriptBox = document.getElementById('transcriptBox');
+const feedbackArea = document.getElementById('feedbackArea');
+const historyArea = document.getElementById('historyArea');
+const historyList = document.getElementById('historyList');
+const warnBox = document.getElementById('warnBox');
+const replayBtn = document.getElementById('replayBtn');
+const statCount = document.getElementById('statCount');
+const statClean = document.getElementById('statClean');
+const statStreak = document.getElementById('statStreak');
+const customTopicInput = document.getElementById('customTopicInput');
+const customTopicBtn = document.getElementById('customTopicBtn');
+const autoModeToggle = document.getElementById('autoModeToggle');
+const speedSlider = document.getElementById('speedSlider');
+const speedVal = document.getElementById('speedVal');
+const patternsCard = document.getElementById('patternsCard');
+const patternsList = document.getElementById('patternsList');
+const chartCard = document.getElementById('chartCard');
+const chartBody = document.getElementById('chartBody');
+const flashCard = document.getElementById('flashCard');
+const flashBody = document.getElementById('flashBody');
+
+let autoMode = false;
+
+loadProgress();
+updateStatsDisplay();
+renderPatterns();
+renderChart();
+renderFlashcards();
+speedSlider.value = speechRate;
+speedVal.textContent = speechRate.toFixed(2) + '×';
+
+// build waveform bars
+const barCount = 24;
+for(let i=0;i<barCount;i++){
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  const angle = (i/barCount)*360;
+  const height = 10 + Math.random()*14;
+  bar.style.height = height+'px';
+  bar.style.left = '50%';
+  bar.style.top = '50%';
+  bar.style.transform = `rotate(${angle}deg) translate(0, -58px)`;
+  bar.style.animationDelay = (Math.random()*0.6)+'s';
+  micRing.appendChild(bar);
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+function getNextQuestion(topic){
+  if(!topic.queue || topic.queue.length===0){
+    topic.queue = shuffle(topic.starters);
+  }
+  return topic.queue.shift();
+}
+
+const encouragementsClean = [
+  "Чудово! Жодної помилки — так тримати.",
+  "Ідеально сказано, продовжуй у тому ж дусі!",
+  "Дуже природно прозвучало — супер.",
+  "Клас! Звучить дуже впевнено."
+];
+const encouragementsErrors = [
+  "Непогано! Ще трохи практики — і буде ідеально.",
+  "Гарна спроба, глянь на виправлення нижче.",
+  "Ти на правильному шляху, лише кілька дрібниць.",
+  "Молодець, що спробувала! Ось на що звернути увагу."
+];
+function pickEncouragement(hasErrors){
+  const arr = hasErrors ? encouragementsErrors : encouragementsClean;
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+
+// render topic chips
+topics.forEach(t=>{
+  const chip = document.createElement('div');
+  chip.className = 'chip';
+  chip.textContent = t.label;
+  chip.onclick = ()=>selectTopic(t);
+  chip.dataset.id = t.id;
+  topicsEl.appendChild(chip);
+});
+
+function selectTopic(t){
+  currentTopic = t;
+  conversationHistory = [];
+  historyList.innerHTML = '';
+  historyArea.style.display = 'none';
+  feedbackArea.innerHTML = '';
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', c.dataset.id===t.id));
+  t.queue = shuffle(t.starters);
+  currentQuestion = getNextQuestion(t);
+  questionText.textContent = currentQuestion;
+  micBtn.classList.remove('disabled');
+  micStatus.textContent = 'Натисни мікрофон і відповідай';
+  transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
+}
+
+replayBtn.onclick = ()=>{
+  if(!currentQuestion) return;
+  speakEnglish(currentQuestion);
+};
+
+autoModeToggle.onchange = ()=>{
+  autoMode = autoModeToggle.checked;
+};
+
+const dialogueModeToggle = document.getElementById('dialogueModeToggle');
+dialogueModeToggle.onchange = ()=>{
+  dialogueMode = dialogueModeToggle.checked;
+};
+
+speedSlider.oninput = ()=>{
+  speechRate = parseFloat(speedSlider.value);
+  speedVal.textContent = speechRate.toFixed(2) + '×';
+  saveProgress();
+};
+
+function startCustomTopic(text){
+  const trimmed = text.trim();
+  if(!trimmed) return;
+  const customTopic = { id:'custom', label:'Своя тема', starters:[trimmed], queue:[] };
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  currentTopic = customTopic;
+  conversationHistory = [];
+  historyList.innerHTML = '';
+  historyArea.style.display = 'none';
+  feedbackArea.innerHTML = '';
+  currentTopic.queue = [trimmed];
+  currentQuestion = trimmed;
+  questionText.textContent = currentQuestion;
+  micBtn.classList.remove('disabled');
+  micStatus.textContent = 'Натисни мікрофон і відповідай';
+  transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
+}
+
+customTopicBtn.onclick = ()=>{
+  startCustomTopic(customTopicInput.value);
+  customTopicInput.value = '';
+};
+customTopicInput.onkeydown = (e)=>{
+  if(e.key === 'Enter'){
+    startCustomTopic(customTopicInput.value);
+    customTopicInput.value = '';
+  }
+};
+
+let selectedVoice = null;
+function pickFemaleVoice(){
+  if(!('speechSynthesis' in window)) return;
+  const voices = window.speechSynthesis.getVoices();
+  if(!voices.length) return;
+  const enVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+  const pool = enVoices.length ? enVoices : voices;
+  const femaleHints = ['female','zira','samantha','victoria','karen','moira','tessa','fiona','susan','allison','ava','serena','kate','emma','joanna','salli','ivy','kendra','kimberly','amy','olivia','aria','jenny','libby','natasha'];
+  let voice = pool.find(v => femaleHints.some(h => v.name.toLowerCase().includes(h)));
+  if(!voice) voice = pool.find(v => !/male|david|mark|daniel|george|james|alex\b|fred|guy/i.test(v.name));
+  selectedVoice = voice || pool[0];
+}
+if('speechSynthesis' in window){
+  pickFemaleVoice();
+  window.speechSynthesis.onvoiceschanged = pickFemaleVoice;
+}
+
+function speakEnglish(text, onEnd){
+  if(!('speechSynthesis' in window)){ if(onEnd) onEnd(); return; }
+  const avatarEl = document.getElementById('avatar');
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  u.rate = speechRate;
+  if(selectedVoice) u.voice = selectedVoice;
+  u.onstart = ()=> avatarEl && avatarEl.classList.add('speaking');
+  u.onend = ()=>{
+    avatarEl && avatarEl.classList.remove('speaking');
+    if(onEnd) onEnd();
+  };
+  u.onerror = ()=>{
+    avatarEl && avatarEl.classList.remove('speaking');
+    if(onEnd) onEnd();
+  };
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+}
+
+// Generic multilingual TTS for the reader/translator tool below — picks the
+// best available voice for the given language rather than always English.
+function getVoiceForLang(langPrefix){
+  if(!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  if(!voices.length) return null;
+  const matches = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(langPrefix));
+  if(!matches.length) return null;
+  const femaleHints = ['female','zira','samantha','victoria','karen','moira','tessa','fiona','susan','allison','ava','serena','kate','emma','joanna','salli','ivy','kendra','kimberly','amy','olivia','aria','jenny','libby','natasha'];
+  return matches.find(v => femaleHints.some(h => v.name.toLowerCase().includes(h))) || matches[0];
+}
+
+function speakText(text, langPrefix, langTag, onEnd, onNoVoice){
+  if(!('speechSynthesis' in window)){ if(onEnd) onEnd(); return; }
+
+  const voice = getVoiceForLang(langPrefix);
+  // If we can't find a voice for the requested language (common for Ukrainian
+  // on some systems), fall back to whatever voice IS available rather than
+  // silently failing — Chrome sometimes drops the utterance entirely when
+  // `lang` doesn't match any installed voice and no voice is set explicitly.
+  const voices = ('speechSynthesis' in window) ? window.speechSynthesis.getVoices() : [];
+  const fallbackVoice = voice || voices[0] || null;
+  if(!voice && onNoVoice) onNoVoice();
+
+  const speakNow = ()=>{
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = fallbackVoice ? fallbackVoice.lang : langTag;
+    u.rate = speechRate;
+    if(fallbackVoice) u.voice = fallbackVoice;
+
+    // Chrome has a long-standing bug where speechSynthesis silently stops
+    // after ~15 seconds on longer utterances (as if paused, with no error
+    // event). Nudging it with pause()+resume() every few seconds prevents
+    // this from happening.
+    let keepAlive = null;
+    const stopKeepAlive = ()=>{ if(keepAlive){ clearInterval(keepAlive); keepAlive = null; } };
+    keepAlive = setInterval(()=>{
+      if(window.speechSynthesis.speaking){
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      } else {
+        stopKeepAlive();
+      }
+    }, 10000);
+
+    u.onend = ()=>{ stopKeepAlive(); if(onEnd) onEnd(); };
+    u.onerror = ()=>{ stopKeepAlive(); if(onEnd) onEnd(); };
+    window.speechSynthesis.speak(u);
+  };
+
+  window.speechSynthesis.cancel();
+  // Chrome has a known bug where speak() called immediately after cancel()
+  // in the same tick can be silently dropped — a tiny delay avoids it.
+  setTimeout(speakNow, 60);
+  return fallbackVoice;
+}
+
+// speech recognition setup
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(!SR){
+  warnBox.innerHTML = '<div class="warn">Розпізнавання мовлення не підтримується у цьому браузері. Відкрий цю сторінку в Chrome на Android для найкращої роботи.</div>';
+  micBtn.classList.add('disabled');
+} else {
+  recognition = new SR();
+  recognition.lang = 'en-US';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  recognition.onresult = (e)=>{
+    let interim = '';
+    let final = '';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    transcriptBox.classList.add('live');
+    transcriptBox.textContent = final || interim || '...';
+    if(final){
+      stopListening();
+      handleFinalTranscript(final.trim());
+    }
+  };
+
+  recognition.onerror = (e)=>{
+    stopListening();
+    if(e.error === 'not-allowed'){
+      micStatus.textContent = 'Немає доступу до мікрофона';
+    } else if(e.error === 'no-speech'){
+      micStatus.textContent = 'Не почув мовлення, спробуй ще раз';
+    } else {
+      micStatus.textContent = 'Помилка розпізнавання, спробуй ще раз';
+    }
+  };
+
+  recognition.onend = ()=>{ if(listening) stopListening(); };
+}
+
+micBtn.onclick = ()=>{
+  if(micBtn.classList.contains('disabled') || !currentTopic) return;
+  if(listening){ recognition.stop(); return; }
+  startListening();
+};
+
+function startListening(){
+  listening = true;
+  micBtn.classList.add('listening');
+  micRing.classList.add('active');
+  micStatus.textContent = 'Слухаю...';
+  feedbackArea.innerHTML = '';
+  transcriptBox.classList.remove('live');
+  transcriptBox.innerHTML = '<span class="placeholder">Говори...</span>';
+  try{ recognition.start(); }catch(err){ /* already started */ }
+}
+
+function stopListening(){
+  listening = false;
+  micBtn.classList.remove('listening');
+  micRing.classList.remove('active');
+  micStatus.textContent = 'Натисни мікрофон і відповідай';
+}
+
+async function handleFinalTranscript(transcript){
+  micStatus.innerHTML = 'Аналізую <span class="loading-dots"></span>';
+  transcriptBox.textContent = transcript;
+
+  try{
+    const result = await analyzeSpeech(transcript);
+    renderFeedback(transcript, result);
+    conversationHistory.push({question: currentQuestion, transcript, corrected: result.corrected, hadErrors: result.errors.length>0});
+    updateHistory();
+
+    totalCount++;
+    if(result.errors.length===0) totalClean++;
+    result.errors.forEach(e=>{
+      // Prefer the category the LLM assigned directly; only fall back to
+      // regex-guessing from the explanation text if it's missing/unknown.
+      const knownKey = e.category && MISTAKE_CATEGORIES.some(c=>c.key===e.category) ? e.category : null;
+      const catKey = knownKey || categorizeMistake(e.explanation).key;
+      mistakeTally[catKey] = (mistakeTally[catKey] || 0) + 1;
+    });
+    recordDailyResult(result.errors.length > 0);
+    recordErrorSamples(result.errors);
+
+    const today = todayStr();
+    if(lastPracticeDate !== today){
+      streak = (lastPracticeDate === yesterdayStr()) ? streak + 1 : 1;
+      lastPracticeDate = today;
+    }
+    saveProgress();
+    updateStatsDisplay();
+    renderPatterns();
+    renderChart();
+    renderFlashcards();
+
+    if(result.next_question){
+      currentQuestion = result.next_question;
+      questionText.textContent = currentQuestion;
+    }
+  }catch(err){
+    feedbackArea.innerHTML = `<div class="card warn">Не вдалося отримати відповідь від сервісу перевірки. Спробуй ще раз.</div>`;
+  }finally{
+    micStatus.textContent = 'Натисни мікрофон і відповідай';
+  }
+}
+
+// Grammar checking is done by an LLM behind a small Cloudflare Worker proxy
+// (the API key can't live in this static page). The worker receives the raw
+// transcript and returns { corrected, errors: [{original, correction, explanation}] }.
+// The LLM catches everything a rule-based checker like LanguageTool misses:
+// prepositions, verb tense choice and tense agreement across a sentence,
+// word order / sentence construction, and garbled/run-on speech that has no
+// single identifiable "rule" violation but is still not valid English.
+//
+// Deploy the worker (see worker.js + README) and paste its URL below.
+const GRAMMAR_WORKER_URL = 'https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev';
+
+async function analyzeSpeech(transcript){
+  if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
+    throw new Error('Grammar worker URL is not configured yet — set GRAMMAR_WORKER_URL in index.html.');
+  }
+
+  const response = await fetch(GRAMMAR_WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'grammar', text: transcript, question: currentQuestion || '' })
+  });
+  if(!response.ok) throw new Error('Grammar check request failed');
+  const data = await response.json();
+  if(data.error) throw new Error(data.error);
+
+  const errors = (data.errors || []).map(e => ({
+    original: e.original || '',
+    correction: e.correction || '',
+    explanation: e.explanation || '',
+    category: e.category || ''
+  }));
+  const upgrades = Array.isArray(data.upgrades) ? data.upgrades.filter(u => u && u.word && Array.isArray(u.suggestions) && u.suggestions.length) : [];
+
+  let nextQuestion = getNextQuestion(currentTopic);
+  if(dialogueMode){
+    try{
+      const fuResp = await fetch(GRAMMAR_WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'followup', question: currentQuestion || '', answer: transcript })
+      });
+      const fuData = await fuResp.json().catch(()=>({}));
+      if(fuResp.ok && fuData.question) nextQuestion = fuData.question;
+    }catch(err){
+      // dialogue follow-up failed — silently fall back to the static question bank
+    }
+  }
+
+  return {
+    corrected: data.corrected || transcript,
+    errors,
+    upgrades,
+    encouragement: pickEncouragement(errors.length>0),
+    next_question: nextQuestion
+  };
+}
+
+function renderFeedback(transcript, result){
+  let correctedHtml = escapeHtml(result.corrected);
+  result.errors.forEach(e=>{
+    const safeOld = escapeHtml(e.original);
+    const safeNew = escapeHtml(e.correction);
+    if(correctedHtml.includes(safeNew)){
+      correctedHtml = correctedHtml.replace(safeNew, `<mark>${safeNew}</mark>`);
+    }
+  });
+
+  let errorsHtml = '';
+  if(result.errors.length===0){
+    errorsHtml = `<div class="no-errors">✓ Жодної помилки — чудово!</div>`;
+  } else {
+    errorsHtml = result.errors.map(e=>{
+      const catMeta = MISTAKE_CATEGORIES.find(c=>c.key===e.category);
+      const badge = catMeta ? `<span class="err-badge">${escapeHtml(catMeta.label)}</span>` : '';
+      return `
+      <div class="err-item">
+        <div class="err-swap"><span class="old">${escapeHtml(e.original)}</span> → <span class="new">${escapeHtml(e.correction)}</span>${badge}</div>
+        <div class="err-explain">${escapeHtml(e.explanation)}</div>
+      </div>
+    `;
+    }).join('');
+  }
+
+  const upgradesHtml = (result.upgrades && result.upgrades.length) ? `
+    <div class="upgrades-block">
+      <div class="upgrades-title">Збагати словник</div>
+      ${result.upgrades.map(u => `
+        <div class="upgrade-item">
+          <span class="word">${escapeHtml(u.word)}</span><span class="arrow">→</span><span class="sugg">${u.suggestions.map(escapeHtml).join(', ')}</span>
+        </div>
+      `).join('')}
+    </div>
+  ` : '';
+
+  const nextBtnHtml = autoMode ? '' : `<button class="next-btn" id="nextBtn">Наступне питання →</button>`;
+
+  feedbackArea.innerHTML = `
+    <div class="card feedback-card">
+      <div class="feedback-label">Виправлення</div>
+      <div class="corrected-text">${correctedHtml}</div>
+      ${errorsHtml}
+      ${upgradesHtml}
+      <div class="encouragement">${escapeHtml(result.encouragement)}</div>
+    </div>
+    ${nextBtnHtml}
+  `;
+
+  function goToNextQuestion(){
+    feedbackArea.innerHTML = '';
+    transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
+  }
+
+  if(!autoMode){
+    document.getElementById('nextBtn').onclick = ()=>{
+      speakEnglish(currentQuestion);
+      goToNextQuestion();
+    };
+    speakEnglish(result.corrected);
+  } else {
+    // Auto mode: speak the correction, then the next question, then start listening automatically
+    speakEnglish(result.corrected, ()=>{
+      if(!autoMode) return; // user turned it off mid-sequence
+      goToNextQuestion();
+      speakEnglish(currentQuestion, ()=>{
+        if(!autoMode || !currentTopic) return;
+        startListening();
+      });
+    });
+  }
+}
+
+function updateHistory(){
+  if(conversationHistory.length===0) return;
+  historyArea.style.display = 'block';
+  historyList.innerHTML = conversationHistory.slice().reverse().map(h=>`
+    <div class="hist-item">
+      <b>${h.hadErrors ? '✎' : '✓'}</b> ${escapeHtml(h.transcript)}
+    </div>
+  `).join('');
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// ---- Reader / translator tool ----
+const readerInput = document.getElementById('readerInput');
+const readerListenBtn = document.getElementById('readerListenBtn');
+const readerToEnBtn = document.getElementById('readerToEnBtn');
+const readerToUkBtn = document.getElementById('readerToUkBtn');
+const readerStopBtn = document.getElementById('readerStopBtn');
+const readerStatus = document.getElementById('readerStatus');
+const readerTranslation = document.getElementById('readerTranslation');
+const readerTranslationText = document.getElementById('readerTranslationText');
+
+function checkWorkerConfigured(){
+  if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
+    throw new Error('URL воркера ще не налаштований — встав його в GRAMMAR_WORKER_URL.');
+  }
+}
+
+function isUrl(str){
+  return /^https?:\/\/\S+$/i.test(str.trim());
+}
+
+function looksUkrainian(text){
+  return /[а-яіїєґ]/i.test(text);
+}
+
+async function resolveReaderText(){
+  const raw = readerInput.value.trim();
+  if(!raw) throw new Error('Встав текст або посилання.');
+  if(!isUrl(raw)) return raw;
+
+  checkWorkerConfigured();
+  readerStatus.textContent = 'Завантажую сторінку…';
+  const resp = await fetch(GRAMMAR_WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'fetch_url', url: raw })
+  });
+  const data = await resp.json().catch(()=>({}));
+  if(!resp.ok || data.error) throw new Error(data.error || 'Не вдалося завантажити сторінку.');
+  if(!data.text) throw new Error('На сторінці не знайдено тексту.');
+  return data.text;
+}
+
+function setReaderBusy(busy){
+  [readerListenBtn, readerToEnBtn, readerToUkBtn].forEach(b => b.disabled = busy);
+  readerStopBtn.style.display = busy ? 'inline-block' : 'none';
+}
+
+readerStopBtn.onclick = ()=>{
+  if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  setReaderBusy(false);
+  readerStatus.textContent = '';
+};
+
+readerListenBtn.onclick = async ()=>{
+  readerTranslation.style.display = 'none';
+  try{
+    const text = await resolveReaderText();
+    const ukr = looksUkrainian(text);
+    setReaderBusy(true);
+    readerStatus.textContent = 'Читаю…';
+    delete readerStatus.dataset.warned;
+    speakText(text, ukr ? 'uk' : 'en', ukr ? 'uk-UA' : 'en-US', ()=>{
+      setReaderBusy(false);
+      if(!readerStatus.dataset.warned) readerStatus.textContent = '';
+    }, ukr ? ()=>{ readerStatus.textContent = 'Українського голосу не знайдено, читаю доступним голосом…'; readerStatus.dataset.warned = '1'; } : null);
+  }catch(err){
+    setReaderBusy(false);
+    readerStatus.textContent = err.message;
+  }
+};
+
+async function translateAndSpeak(targetLang){
+  readerTranslation.style.display = 'none';
+  try{
+    const text = await resolveReaderText();
+    checkWorkerConfigured();
+    setReaderBusy(true);
+    readerStatus.textContent = 'Перекладаю…';
+    const resp = await fetch(GRAMMAR_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'translate', text, targetLang })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || data.error) throw new Error(data.error || 'Не вдалося перекласти.');
+    const translated = data.translated || '';
+    readerTranslationText.textContent = translated;
+    readerTranslation.style.display = 'block';
+    readerStatus.textContent = 'Читаю…';
+    const ukr = targetLang === 'uk';
+    delete readerStatus.dataset.warned;
+    speakText(translated, ukr ? 'uk' : 'en', ukr ? 'uk-UA' : 'en-US', ()=>{
+      setReaderBusy(false);
+      if(!readerStatus.dataset.warned) readerStatus.textContent = '';
+    }, ukr ? ()=>{ readerStatus.textContent = 'Українського голосу не знайдено, читаю доступним голосом…'; readerStatus.dataset.warned = '1'; } : null);
+  }catch(err){
+    setReaderBusy(false);
+    readerStatus.textContent = err.message;
+  }
+}
+
+readerToEnBtn.onclick = ()=> translateAndSpeak('en');
+readerToUkBtn.onclick = ()=> translateAndSpeak('uk');
+
+// ---- Idiom of the day ----
+const idiomBody = document.getElementById('idiomBody');
+const idiomRefreshBtn = document.getElementById('idiomRefreshBtn');
+const IDIOM_CACHE_KEY = 'voiceCoachIdiomOfDay';
+
+function renderIdiom(idiom){
+  idiomBody.innerHTML = `
+    <div class="idiom-phrase">${escapeHtml(idiom.phrase)}</div>
+    <div class="idiom-meaning">${escapeHtml(idiom.meaning_uk)}</div>
+    <div class="idiom-example">
+      <div class="en">${escapeHtml(idiom.example_en)}</div>
+      <div class="uk">${escapeHtml(idiom.example_uk)}</div>
+    </div>
+  `;
+}
+
+async function fetchIdiom(seed){
+  if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
+    idiomBody.innerHTML = `<div class="idiom-loading">URL воркера ще не налаштований.</div>`;
+    return;
+  }
+  idiomBody.innerHTML = `<div class="idiom-loading">Завантажую фразу…</div>`;
+  try{
+    const resp = await fetch(GRAMMAR_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'idiom', seed })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || data.error || !data.phrase) throw new Error(data.error || 'Не вдалося отримати фразу.');
+    renderIdiom(data);
+    try{
+      localStorage.setItem(IDIOM_CACHE_KEY, JSON.stringify({ date: todayStr(), idiom: data }));
+    }catch(e){ /* storage unavailable — just skip caching */ }
+  }catch(err){
+    idiomBody.innerHTML = `<div class="idiom-loading">Не вдалося завантажити фразу дня.</div>`;
+  }
+}
+
+function loadIdiomOfDay(){
+  try{
+    const raw = localStorage.getItem(IDIOM_CACHE_KEY);
+    if(raw){
+      const cached = JSON.parse(raw);
+      if(cached.date === todayStr() && cached.idiom){
+        renderIdiom(cached.idiom);
+        return;
+      }
+    }
+  }catch(e){ /* ignore corrupt cache */ }
+  fetchIdiom(todayStr());
+}
+
+idiomRefreshBtn.onclick = ()=> fetchIdiom(Date.now().toString());
+
+loadIdiomOfDay();
+
+</script>
+</body>
+</html>
