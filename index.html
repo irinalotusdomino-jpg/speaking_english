@@ -81,6 +81,7 @@
   .question-card{position:relative;}
   .question-label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}
   .question-text{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-size:21px;line-height:1.4;color:var(--text);}
+  .question-translation{font-size:13px;color:var(--text-dim);margin-top:8px;line-height:1.4;min-height:16px;}
   .replay-btn{
     position:absolute;top:20px;right:20px;width:34px;height:34px;border-radius:50%;
     background:var(--surface-2);border:1px solid var(--border);color:var(--text-dim);
@@ -363,6 +364,7 @@
     <button class="replay-btn" id="replayBtn" title="Прослухати питання">▶</button>
     <div class="question-label">Питання</div>
     <div class="question-text" id="questionText">Обери тему вище, щоб почати</div>
+    <div class="question-translation" id="questionTranslation"></div>
   </div>
 
   <div class="mic-zone">
@@ -593,6 +595,59 @@ function updateStatsDisplay(){
   statStreak.textContent = streak;
 }
 
+const QUESTION_TR_CACHE_KEY = 'voiceCoachQuestionTranslations';
+let questionTrCache = {};
+try{
+  const raw = localStorage.getItem(QUESTION_TR_CACHE_KEY);
+  if(raw) questionTrCache = JSON.parse(raw) || {};
+}catch(e){ questionTrCache = {}; }
+
+function saveQuestionTrCache(){
+  try{
+    const keys = Object.keys(questionTrCache);
+    if(keys.length > 200){
+      // keep it from growing forever — drop oldest half
+      keys.slice(0, keys.length - 150).forEach(k => delete questionTrCache[k]);
+    }
+    localStorage.setItem(QUESTION_TR_CACHE_KEY, JSON.stringify(questionTrCache));
+  }catch(e){ /* storage unavailable — skip caching */ }
+}
+
+async function translateQuestionDisplay(question){
+  const qtEl = document.getElementById('questionTranslation');
+  if(!qtEl) return;
+  if(!question){ qtEl.textContent = ''; return; }
+  if(questionTrCache[question]){
+    qtEl.textContent = questionTrCache[question];
+    return;
+  }
+  if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){ qtEl.textContent = ''; return; }
+  qtEl.textContent = '…';
+  try{
+    const resp = await fetch(GRAMMAR_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'translate', text: question, targetLang: 'uk' })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || data.error || !data.translated) throw new Error();
+    // Only show it if the question hasn't changed while we were waiting
+    if(currentQuestion === question){
+      qtEl.textContent = data.translated;
+      questionTrCache[question] = data.translated;
+      saveQuestionTrCache();
+    }
+  }catch(err){
+    if(currentQuestion === question) qtEl.textContent = '';
+  }
+}
+
+function setCurrentQuestion(q){
+  currentQuestion = q;
+  questionText.textContent = q;
+  translateQuestionDisplay(q);
+}
+
 function last7DayKeys(){
   const keys = [];
   for(let i=6;i>=0;i--){
@@ -771,8 +826,7 @@ function selectTopic(t){
   feedbackArea.innerHTML = '';
   document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('active', c.dataset.id===t.id));
   t.queue = shuffle(t.starters);
-  currentQuestion = getNextQuestion(t);
-  questionText.textContent = currentQuestion;
+  setCurrentQuestion(getNextQuestion(t));
   micBtn.classList.remove('disabled');
   micStatus.textContent = 'Натисни мікрофон і відповідай';
   transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
@@ -809,8 +863,7 @@ function startCustomTopic(text){
   historyArea.style.display = 'none';
   feedbackArea.innerHTML = '';
   currentTopic.queue = [trimmed];
-  currentQuestion = trimmed;
-  questionText.textContent = currentQuestion;
+  setCurrentQuestion(trimmed);
   micBtn.classList.remove('disabled');
   micStatus.textContent = 'Натисни мікрофон і відповідай';
   transcriptBox.innerHTML = '<span class="placeholder">Тут з’явиться те, що ти скажеш...</span>';
@@ -1019,8 +1072,7 @@ async function handleFinalTranscript(transcript){
     renderFlashcards();
 
     if(result.next_question){
-      currentQuestion = result.next_question;
-      questionText.textContent = currentQuestion;
+      setCurrentQuestion(result.next_question);
     }
   }catch(err){
     feedbackArea.innerHTML = `<div class="card warn">Не вдалося отримати відповідь від сервісу перевірки. Спробуй ще раз.</div>`;
@@ -1038,7 +1090,7 @@ async function handleFinalTranscript(transcript){
 // single identifiable "rule" violation but is still not valid English.
 //
 // Deploy the worker (see worker.js + README) and paste its URL below.
-const GRAMMAR_WORKER_URL = 'https://english-grammar-checker.irina-lotus-domino.workers.dev';
+const GRAMMAR_WORKER_URL = 'https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev';
 
 async function analyzeSpeech(transcript){
   if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
