@@ -35,7 +35,7 @@
   }
   .wrap{max-width:520px;margin:0 auto;padding:28px 18px 60px;}
 
-.avatar-wrap{display:flex;justify-content:center;margin-bottom:16px;}
+.avatar-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:16px;}
   .avatar{
     position:relative;width:104px;height:104px;border-radius:50%;
     overflow:hidden;box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--amber-dim), 0 8px 22px rgba(0,0,0,.35);
@@ -45,9 +45,23 @@
     transition:opacity .25s ease;
   }
   .avatar img.talk{opacity:0;}
-  .avatar.speaking img.idle{opacity:0;}
-  .avatar.speaking img.talk{opacity:1;}
-  .avatar.speaking{box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--lavender), 0 8px 22px rgba(185,166,240,.3);}
+  .avatar.speaking{box-shadow:0 0 0 3px var(--surface), 0 0 0 5px var(--lavender), 0 8px 22px rgba(185,166,240,.3); animation: avatarPulse 1.4s ease-in-out infinite;}
+  @keyframes avatarPulse{
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.025); }
+  }
+  .speak-waves{display:flex;align-items:flex-end;justify-content:center;gap:4px;height:18px;margin-top:10px;opacity:0;transition:opacity .2s ease;}
+  .speak-waves.active{opacity:1;}
+  .speak-waves span{width:4px;border-radius:2px;background:var(--lavender);animation:waveBounce 0.9s ease-in-out infinite;}
+  .speak-waves span:nth-child(1){animation-delay:0s;}
+  .speak-waves span:nth-child(2){animation-delay:.15s;}
+  .speak-waves span:nth-child(3){animation-delay:.3s;}
+  .speak-waves span:nth-child(4){animation-delay:.15s;}
+  .speak-waves span:nth-child(5){animation-delay:0s;}
+  @keyframes waveBounce{
+    0%, 100% { height: 5px; }
+    50% { height: 18px; }
+  }
 
   header{margin-bottom:22px;}
   .eyebrow{
@@ -289,6 +303,9 @@
     <div class="avatar" id="avatar">
       <img class="idle" src="avatar-idle.jpg" alt="Аватар співрозмовниці">
       <img class="talk" src="avatar-talk.jpg" alt="Аватар співрозмовниці говорить">
+    </div>
+    <div class="speak-waves" id="speakWaves">
+      <span></span><span></span><span></span><span></span><span></span>
     </div>
   </div>
 
@@ -900,17 +917,23 @@ if('speechSynthesis' in window){
 function speakEnglish(text, onEnd){
   if(!('speechSynthesis' in window)){ if(onEnd) onEnd(); return; }
   const avatarEl = document.getElementById('avatar');
+  const wavesEl = document.getElementById('speakWaves');
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'en-US';
   u.rate = speechRate;
   if(selectedVoice) u.voice = selectedVoice;
-  u.onstart = ()=> avatarEl && avatarEl.classList.add('speaking');
+  u.onstart = ()=>{
+    avatarEl && avatarEl.classList.add('speaking');
+    wavesEl && wavesEl.classList.add('active');
+  };
   u.onend = ()=>{
     avatarEl && avatarEl.classList.remove('speaking');
+    wavesEl && wavesEl.classList.remove('active');
     if(onEnd) onEnd();
   };
   u.onerror = ()=>{
     avatarEl && avatarEl.classList.remove('speaking');
+    wavesEl && wavesEl.classList.remove('active');
     if(onEnd) onEnd();
   };
   window.speechSynthesis.cancel();
@@ -1090,7 +1113,7 @@ async function handleFinalTranscript(transcript){
 // single identifiable "rule" violation but is still not valid English.
 //
 // Deploy the worker (see worker.js + README) and paste its URL below.
-const GRAMMAR_WORKER_URL = 'https://english-grammar-checker.irina-lotus-domino.workers.dev';
+const GRAMMAR_WORKER_URL = 'https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev';
 
 async function analyzeSpeech(transcript){
   if(GRAMMAR_WORKER_URL.includes('YOUR-WORKER-NAME')){
